@@ -172,7 +172,7 @@ void PreDraw()
 
 	glViewport(GLint(0), GLint(0), gScreenWidth, gScreenHeight);
 
-	glClearColor(GLfloat(1.f), GLfloat(1.f), GLfloat(0.1f), GLfloat(1.f));
+	glClearColor(GLfloat(0.f), GLfloat(0.7f), GLfloat(0.1f), GLfloat(1.f));
 
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
