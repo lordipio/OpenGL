@@ -1,147 +1,111 @@
-#include "SDL.h"
-#include "GLAD/include/glad/glad.h"
 #include <iostream>
-#include "vector"
+#include <fstream>
+#include <SDL.h>
+#include <GLAD/glad.h>
+#include <vector>
+
 #undef main
 
-int gScreenHeight = 480;
+#pragma region Definitions
 
-int gScreenWidth = 640;
+int WindowXPos = 0;
 
-bool gQuit = false;
+int WindowYPos = 0;
 
-SDL_Window* gSDLWindow = nullptr;
+int Width = 600;
 
-SDL_GLContext gGLContext = nullptr;
+int Height = 600;
 
-std::string gVertexShader =
-"#version 410 core\n"
-"in vec4 position;\n"
-"void main()\n"
-"{\n"
-"	gl_Position = vec4(position.x, position.y, position.z, position.w);\n"
-"}\n";
+bool AllowExit = false;
+
+std::string FragmentShaderSource;
+
+std::string VertexShaderSource;
+
+SDL_GLContext MainGLContext(nullptr);
+
+SDL_Window* MainWindow(nullptr);
+
+GLuint Program;
+
+GLuint VertexShader;
+
+GLuint FragmentShader;
+
+std::vector<float> Vertices = {
+	// Positions       // Colors
+   -0.5f, -0.5f, 0.0f,  0.5f, 0.0f, 0.0f,  // Bottom-left vertex
+	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f,  // Bottom-right vertex
+	0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f   // Top vertex
+};
 
 
-std::string gFragmentShader =
-"#version 410 core\n"
-"out vec4 color;\n"
-"void main()\n"
-"{\n"
-"	color = vec4(1.0f, 0.0f, 0.2f, 1.0f);\n"
-"}\n";
 
-GLuint gVertexArrayObject;
+GLuint VertexBuffer;
 
-GLuint gVertexBufferObject;
+GLuint VertexArray;
 
-GLuint gShaderProgram;
+#pragma endregion
 
-GLuint test = 0;
 
-void InitProgram()
+void Init(int PosX, int PosY, int Height, int Width)
 {
+
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
-		std::cout << "Can't Init SDL!" << std::endl;
-		exit(1);
+		std::cout << "Cannot Init SDL!";
+		exit(0);
 	}
 
-	gSDLWindow = SDL_CreateWindow("The Great Window", 50, 50, gScreenWidth, gScreenHeight, SDL_WINDOW_OPENGL);
+	MainWindow = SDL_CreateWindow("My Window", PosX, PosY, Width, Height, SDL_WINDOW_OPENGL);
 
-	if (!gSDLWindow)
+	if (!MainWindow)
 	{
-		std::cout << "Can't Create gWindow!" << std::endl;
-		exit(1);
+		std::cout << "Cannot Create Window!";
+		exit(0);
 	}
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-	gGLContext = SDL_GL_CreateContext(gSDLWindow);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); // ?
 
-	if (!gGLContext)
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); // ?
+
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); // ?
+
+
+	MainGLContext = SDL_GL_CreateContext(MainWindow);
+
+	if (!MainGLContext)
 	{
-		std::cout << "Can't Create gGLContext!";
-		exit(1);
+		std::cout << "Cannot Load GLContext!";
+		exit(0);
 	}
+
 
 	if (!gladLoadGLLoader(SDL_GL_GetProcAddress))
 	{
-		std::cout << "Can't load glad function pointers!";
-		exit(1);
+		std::cout << "Cannot Load GL Loader!";
+		exit(0);
 	}
 
 }
 
-GLuint CompileShader(GLuint type, std::string source)
+std::string ReadShaderFile(std::string filepath)
 {
-	GLuint shader = glCreateShader(type);
+	std::ifstream shaderFile(filepath);
+	if (!shaderFile.is_open()) {
+		std::cerr << "Could not open shader file: " << filepath << std::endl;
+		return std::string("");
+	}
 
-	const char* src = source.c_str();
+	std::string shaderSource((std::istreambuf_iterator<char>(shaderFile)), std::istreambuf_iterator<char>());
 
-	glShaderSource(shader, 1, &src, nullptr);
+	shaderFile.close();
 
-	glCompileShader(shader);
-
-	return shader;
-}
-
-GLuint CreateShaderProgram(std::string vertexShader, std::string fragmentShader)
-{
-	GLuint shaderProgram = glCreateProgram();
-
-	GLuint myVertexShader = CompileShader(GL_VERTEX_SHADER, vertexShader);
-
-	GLuint myFragmentShader = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
-
-	glAttachShader(shaderProgram, myVertexShader);
-
-	glAttachShader(shaderProgram, myFragmentShader);
-
-	glLinkProgram(shaderProgram);
-
-	glValidateProgram(shaderProgram);
-
-	return shaderProgram;
-}
-
-void CreateGraphicsPipeline()
-{
-	gShaderProgram = CreateShaderProgram(gVertexShader, gFragmentShader);
-}
-
-void VertexSpecification()
-{
-	// Lives on CPU
-	std::vector<GLfloat> vertexPosition {
-		// X	 Y		Z
-		-0.8f, -0.8f, 0.0f, // vertex 1
-			0.8f, -0.8f, 0.0f, // vertex 2
-			0.0f, 0.8f, 0.0f  // vertex 3
-	};
-
-	// Start setting things up on GPU
-
-	// Generate VAO
-	glGenVertexArrays(1, &gVertexArrayObject);
-	glBindVertexArray(gVertexArrayObject);
-
-	// Generate VBO
-	glGenBuffers(1, &gVertexBufferObject);
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferObject);
-
-	glBufferData(GL_ARRAY_BUFFER, vertexPosition.size() * sizeof(GLfloat), vertexPosition.data(), GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, GLint(3), GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-	glBindVertexArray(0);
-	glDisableVertexAttribArray(0);
-
+	return shaderSource;
 }
 
 void Input()
@@ -150,19 +114,109 @@ void Input()
 
 	while (SDL_PollEvent(&Event))
 	{
-		if (Event.type == SDL_QUIT)
+		if (Event.type == SDL_KEYDOWN)
 		{
-			std::cout << "Quit!";
-			gQuit = true;
+			std::cout << "Down Button Is Pressed!";
 		}
 
-		if (Event.type == SDL_KEYDOWN) // exit if tap on key down
+		if (Event.type == SDL_QUIT)
 		{
-			std::cout << "Quit!";
-			gQuit = true;
+			std::cout << "Quite Button Is Pressed!";
+			AllowExit = true;
 		}
+
 	}
 }
+
+void CleanUp()
+{
+	glDeleteShader;
+	glDetachShader;
+
+	SDL_Quit();
+
+	SDL_DestroyWindow(MainWindow);
+}
+
+void CreateProgram()
+{
+	Program = glCreateProgram();
+}
+
+void CreateShader()
+{
+	VertexShaderSource = ReadShaderFile("Vertex_Shader.glsl");
+
+	FragmentShaderSource = ReadShaderFile("Fragment_Shader.glsl");
+
+	VertexShader = glCreateShader(GL_VERTEX_SHADER);
+
+	const GLchar* Code = VertexShaderSource.c_str();
+
+	glShaderSource(VertexShader, 1, &Code, nullptr);
+
+	glCompileShader(VertexShader);
+
+
+	FragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+	Code = FragmentShaderSource.c_str();
+
+	glShaderSource(FragmentShader, 1, &Code, nullptr);
+
+	glCompileShader(FragmentShader);
+
+
+	CreateProgram();
+
+	glAttachShader(Program, VertexShader);
+
+	glAttachShader(Program, FragmentShader);
+
+	glLinkProgram(Program);
+
+	// glValidateProgram(Program);
+}
+
+
+void CreateVBOAndVAO()
+{
+	// VBO
+	glGenBuffers(1, &VertexBuffer);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
+
+	glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
+
+
+	// VAO
+	glGenVertexArrays(1, &VertexArray);
+
+	glBindVertexArray(VertexArray);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 6 * sizeof(float), (int*)0);
+
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 6 * sizeof(float), (int*)(3*sizeof(float)));
+
+	glEnableVertexAttribArray(1);
+
+}
+
+//glGenVertexArrays(1, &VertexArray);
+//glBindVertexArray(VertexArray);
+//
+//glGenBuffers(1, &VertexBuffer);
+//glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
+//glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
+//
+//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+//glEnableVertexAttribArray(0);
+//
+//// Unbind buffers for safety (optional)
+//glBindBuffer(GL_ARRAY_BUFFER, 0);
+//glBindVertexArray(0);
 
 void PreDraw()
 {
@@ -170,69 +224,49 @@ void PreDraw()
 
 	glDisable(GL_CULL_FACE);
 
-	glViewport(GLint(0), GLint(0), gScreenWidth, gScreenHeight);
+	glViewport(GLint(WindowXPos), GLint(WindowYPos), GLint(Width), GLint(Height));
 
-	glClearColor(GLfloat(0.f), GLfloat(0.7f), GLfloat(0.1f), GLfloat(1.f));
+	glClearColor(GLfloat(0.5f), GLfloat(6.f), GLfloat(0.1f), GLfloat(1.f));
 
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-	glUseProgram(gShaderProgram);
+	glUseProgram(Program);
 }
 
 void Draw()
 {
-	glBindVertexArray(gVertexArrayObject);
+	glBindVertexArray(VertexArray);
 
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferObject);
+	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
+
+	glEnableVertexAttribArray(0);
+
+	glEnableVertexAttribArray(1);
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	SDL_GL_SwapWindow(MainWindow);
 }
 
-void GetOpenGLContent()
+int main()
 {
-	std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
+	Init(WindowXPos, WindowYPos, Width, Height);
 
-	std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+	CreateShader();
 
-	std::cout << "Version: " << glGetString(GL_VERSION) << std::endl;
+	CreateVBOAndVAO();
 
-	std::cout << "Shading Language: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-}
-
-void MainLoop()
-{
-	while (!gQuit)
+	while (!AllowExit)
 	{
 		Input();
 
 		PreDraw();
 
 		Draw();
-
-		SDL_GL_SwapWindow(gSDLWindow);
 	}
-}
-
-void CleanUp()
-{
-	SDL_Quit();
-
-	SDL_DestroyWindow(gSDLWindow);
-}
-
-int main()
-{
-	InitProgram();
-
-	VertexSpecification();
-
-	CreateGraphicsPipeline();
-
-	GetOpenGLContent();
-
-	MainLoop();
 
 	CleanUp();
+
 
 	return 0;
 }
