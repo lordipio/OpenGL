@@ -33,13 +33,15 @@ GLuint VertexShader;
 GLuint FragmentShader;
 
 std::vector<float> Vertices = {
-	// Positions       // Colors
+	// Positions        // Colors
    -0.5f, -0.5f, 0.0f,  0.5f, 0.0f, 0.0f,  // Bottom-left vertex
 	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f,  // Bottom-right vertex
-	0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f   // Top vertex
+   -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   // Top vertex
+   -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   // Top vertex
+    0.5f,  0.5f, 0.0f,  0.5f, 0.0f, 0.0f,  // Bottom-left vertex
+	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f  // Bottom-right vertex
+
 };
-
-
 
 GLuint VertexBuffer;
 
@@ -124,7 +126,6 @@ void Input()
 			std::cout << "Quite Button Is Pressed!";
 			AllowExit = true;
 		}
-
 	}
 }
 
@@ -174,8 +175,6 @@ void CreateShader()
 	glAttachShader(Program, FragmentShader);
 
 	glLinkProgram(Program);
-
-	// glValidateProgram(Program);
 }
 
 
@@ -204,20 +203,6 @@ void CreateVBOAndVAO()
 
 }
 
-//glGenVertexArrays(1, &VertexArray);
-//glBindVertexArray(VertexArray);
-//
-//glGenBuffers(1, &VertexBuffer);
-//glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
-//glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
-//
-//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-//glEnableVertexAttribArray(0);
-//
-//// Unbind buffers for safety (optional)
-//glBindBuffer(GL_ARRAY_BUFFER, 0);
-//glBindVertexArray(0);
-
 void PreDraw()
 {
 	glDisable(GL_DEPTH_TEST);
@@ -243,7 +228,7 @@ void Draw()
 
 	glEnableVertexAttribArray(1);
 
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	SDL_GL_SwapWindow(MainWindow);
 }
@@ -266,7 +251,6 @@ int main()
 	}
 
 	CleanUp();
-
-
+	
 	return 0;
 }
