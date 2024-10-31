@@ -37,16 +37,18 @@ std::vector<float> Vertices = {
    -0.5f, -0.5f, 0.0f,  0.5f, 0.0f, 0.0f,  // Bottom-left vertex
 	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f,  // Bottom-right vertex
    -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   // Top vertex
-   -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   // Top vertex
-    0.5f,  0.5f, 0.0f,  0.5f, 0.0f, 0.0f,  // Bottom-left vertex
-	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f  // Bottom-right vertex
+    0.5f,  0.5f, 0.0f,  0.5f, 0.0f, 0.0f  // Bottom-left vertex
+};
 
+std::vector<int> VertexIndices = {
+	0, 1, 2, 1, 3, 2
 };
 
 GLuint VertexBuffer;
 
 GLuint VertexArray;
 
+GLuint IndexBufferObject;
 #pragma endregion
 
 
@@ -201,6 +203,14 @@ void CreateVBOAndVAO()
 
 	glEnableVertexAttribArray(1);
 
+	// VIO
+	glGenBuffers(1, &IndexBufferObject);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferObject);
+
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, VertexIndices.size() * sizeof(int), VertexIndices.data(), GL_STATIC_DRAW);
+
+
 }
 
 void PreDraw()
@@ -224,11 +234,15 @@ void Draw()
 
 	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
 
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferObject);
+
 	glEnableVertexAttribArray(0);
 
 	glEnableVertexAttribArray(1);
 
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+	// glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 	SDL_GL_SwapWindow(MainWindow);
 }
