@@ -3,10 +3,13 @@
 #include <SDL.h>
 #include <GLAD/glad.h>
 #include <vector>
+#define STB_IMAGE_IMPLEMENTATION // Note it 
+#include "STB/stb_image.h"
 
 #undef main
 
 #pragma region Definitions
+bool ColorTest = true;
 
 int WindowXPos = 0;
 
@@ -33,11 +36,11 @@ GLuint VertexShader;
 GLuint FragmentShader;
 
 std::vector<float> Vertices = {
-	// Positions        // Colors
-   -0.5f, -0.5f, 0.0f,  0.5f, 0.0f, 0.0f,  // Bottom-left vertex
-	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f,  // Bottom-right vertex
-   -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   // Top vertex
-    0.5f,  0.5f, 0.0f,  0.5f, 0.0f, 0.0f  // Bottom-left vertex
+	// Positions        // Colors		     // UVs
+   -0.5f, -0.5f, 0.0f,  0.5f, 0.0f, 0.0f,   0.f, 0.f,   // Bottom-left vertex
+	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f,   1.f, 0.f,  // Bottom-right vertex
+   -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   0.f, 1.f, // Top-Left vertex
+    0.5f,  0.5f, 0.0f,  0.5f, 0.0f, 0.0f,   1.f, 1.f // Top-Right vertex
 };
 
 std::vector<int> VertexIndices = {
@@ -49,6 +52,8 @@ GLuint VertexBuffer;
 GLuint VertexArray;
 
 GLuint IndexBufferObject;
+
+GLuint MeteorTextureID;
 #pragma endregion
 
 
@@ -195,13 +200,17 @@ void CreateVBOAndVAO()
 
 	glBindVertexArray(VertexArray);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 6 * sizeof(float), (int*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)0);
 
 	glEnableVertexAttribArray(0);
 
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 6 * sizeof(float), (int*)(3*sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)(3*sizeof(float)));
 
 	glEnableVertexAttribArray(1);
+
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)(6 * sizeof(float)));
+
+	glEnableVertexAttribArray(2);
 
 	// VIO
 	glGenBuffers(1, &IndexBufferObject);
@@ -210,11 +219,30 @@ void CreateVBOAndVAO()
 
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, VertexIndices.size() * sizeof(int), VertexIndices.data(), GL_STATIC_DRAW);
 
-
 }
 
 void PreDraw()
 {
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
+
+
+	// Uniform
+	GLuint u_Color = glGetUniformLocation(Program, "u_Color");
+
+	glUniform3f(u_Color, 1.f, 0.f, 0.f);
+
+
+	glActiveTexture(GL_TEXTURE0);
+
+	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
+
+
+	GLuint TextureLocation = glGetUniformLocation(Program, "MeteorTexture");
+	if (TextureLocation != -1)
+		glUniform1i(TextureLocation, 0);
+
+
 	glDisable(GL_DEPTH_TEST);
 
 	glDisable(GL_CULL_FACE);
@@ -240,11 +268,45 @@ void Draw()
 
 	glEnableVertexAttribArray(1);
 
+	glEnableVertexAttribArray(2);
+
+	glActiveTexture(GL_TEXTURE0);
+
+	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
+
 	// glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 	SDL_GL_SwapWindow(MainWindow);
+}
+
+void LoadTexture()
+{
+	glGenTextures(1, &MeteorTextureID);
+	
+	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
+
+
+	glTexParameteri(MeteorTextureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glTexParameteri(MeteorTextureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexParameteri(MeteorTextureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
+	glTexParameteri(MeteorTextureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	
+
+	int width, height, nrChannels;
+	unsigned char* data = stbi_load("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", &width, &height, &nrChannels, 0);
+	if (data)
+	{
+		GLuint ColorFormat = nrChannels == 4 ? GL_RGBA : GL_RGB;
+		glTexImage2D(GL_TEXTURE_2D, 0, ColorFormat, width, height, 0, ColorFormat, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+
+	stbi_image_free(data);
 }
 
 int main()
@@ -253,7 +315,10 @@ int main()
 
 	CreateShader();
 
+	LoadTexture();
+
 	CreateVBOAndVAO();
+
 
 	while (!AllowExit)
 	{
