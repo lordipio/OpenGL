@@ -48,7 +48,7 @@ std::vector<float> Vertices = {
    -0.5f, -0.5f, 0.f,  0.5f, 0.0f, 0.0f,   0.f, 0.f,   // Bottom-left vertex
 	0.5f, -0.5f, 0.f,  0.0f, 0.5f, 0.0f,   1.f, 0.f,  // Bottom-right vertex
    -0.5f,  0.5f, 0.f,  0.0f, 0.0f, 0.5f,   0.f, 1.f, // Top-Left vertex
-    0.5f,  0.5f, 0.f,  0.5f, 0.0f, 0.0f,   1.f, 1.f // Top-Right vertex
+	0.5f,  0.5f, 0.f,  0.5f, 0.0f, 0.0f,   1.f, 1.f // Top-Right vertex
 };
 
 std::vector<int> VertexIndices = {
@@ -70,23 +70,21 @@ glm::mat4 Projection;
 glm::mat4 View;
 
 
-float XSpeed = 1.f;
+float XSpeed = 0.015f;
 
-float YSpeed = 1.f;
+float PlayerXTranslation = 0.f;
 
-float PlayerXPosition = 0.f;
-
-float PlayerYPosition = 0.f;
+float PlayerXTranslationTreshold = 0.08f;
 
 #pragma endregion
 
 void CreateMVP()
 {
 	Model = glm::mat4(1.f);
-	
+
 	Model = glm::scale(Model, glm::vec3(1.f, 1.f, 1.f));
 
-	Model = glm::translate(Model, glm::vec3(PlayerXPosition, PlayerYPosition, -5.f));
+	Model = glm::translate(Model, glm::vec3(0.f, 0.f, -5.f));
 
 	Model = glm::rotate(Model, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
 
@@ -94,10 +92,10 @@ void CreateMVP()
 	glm::vec3 Eye = glm::vec3(0.f, 0.f, 3.f);
 	glm::vec3 Center = glm::vec3(0.f, 0.f, 0.f);
 	glm::vec3 UpVector = glm::vec3(0.f, 1.f, 0.f);
-	
+
 	View = glm::lookAt(Eye, Center, UpVector);
 
-	Projection = glm::perspective((float)glm::radians(45.f), float(Width/Height), 0.1f, 100.f);
+	Projection = glm::perspective((float)glm::radians(45.f), float(Width / Height), 0.1f, 100.f);
 }
 
 void Init(int PosX, int PosY, int Height, int Width)
@@ -166,15 +164,24 @@ void Input()
 
 	while (SDL_PollEvent(&Event))
 	{
-		if (Event.type == SDL_KEYDOWN)
+		const Uint8* InputEventState = SDL_GetKeyboardState(nullptr);
+		if (InputEventState[SDL_SCANCODE_LEFT])
 		{
-			std::cout << "Down Button Is Pressed!";
+			std::cout << "Left Button Is Pressed!" << std::endl;
+			PlayerXTranslation = -XSpeed;
 		}
 
 		if (Event.type == SDL_QUIT)
 		{
-			std::cout << "Quite Button Is Pressed!";
+			std::cout << "Quit Button Is Pressed!" << std::endl;
+
 			AllowExit = true;
+		}
+
+		if (InputEventState[SDL_SCANCODE_RIGHT])
+		{
+			std::cout << "Right Button Is Pressed!" << std::endl;
+			PlayerXTranslation = XSpeed;
 		}
 	}
 }
@@ -182,7 +189,7 @@ void Input()
 void CleanUp()
 {
 	glDeleteShader(FragmentShader);
-	
+
 	glDeleteShader(VertexShader);
 
 	SDL_Quit();
@@ -248,7 +255,7 @@ void CreateVBOAndVAO()
 
 	glEnableVertexAttribArray(0);
 
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)(3*sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)(3 * sizeof(float)));
 
 	glEnableVertexAttribArray(1);
 
@@ -267,9 +274,6 @@ void CreateVBOAndVAO()
 
 void PreDraw()
 {
-
-
-
 	// Uniform
 	GLuint u_Color = glGetUniformLocation(Program, "u_Color");
 
@@ -278,7 +282,7 @@ void PreDraw()
 	glEnable(GL_BLEND);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
-	
+
 	glActiveTexture(GL_TEXTURE0);
 
 	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
@@ -353,7 +357,7 @@ void Draw()
 void LoadTexture()
 {
 	glGenTextures(1, &MeteorTextureID);
-	
+
 	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
 
 
@@ -364,7 +368,7 @@ void LoadTexture()
 	glTexParameteri(MeteorTextureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
 	glTexParameteri(MeteorTextureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	
+
 
 	int width, height, nrChannels;
 	unsigned char* data = stbi_load("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", &width, &height, &nrChannels, 0);
@@ -380,6 +384,16 @@ void LoadTexture()
 
 void MoveCharacter()
 {
+	if (PlayerXTranslation > 0)
+		PlayerXTranslation += XSpeed;
+
+	if (PlayerXTranslation < 0)
+		PlayerXTranslation -= XSpeed;
+
+	Model = glm::translate(Model, glm::vec3(PlayerXTranslation, 0.f, 0.f));
+
+	if (PlayerXTranslation >= PlayerXTranslationTreshold || PlayerXTranslation <= -PlayerXTranslationTreshold)
+		PlayerXTranslation = 0.f;
 
 }
 
@@ -399,12 +413,14 @@ int main()
 	{
 		Input();
 
+		MoveCharacter();
+
 		PreDraw();
 
 		Draw();
 	}
 
 	CleanUp();
-	
+
 	return 0;
 }
