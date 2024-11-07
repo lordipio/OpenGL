@@ -3,7 +3,15 @@
 #include <SDL.h>
 #include <GLAD/glad.h>
 #include <vector>
-#define STB_IMAGE_IMPLEMENTATION // Note it 
+#include "GLM/glm/vec4.hpp"
+#include "GLM/glm/vec3.hpp"
+#include "GLM/glm/glm.hpp"
+#include "GLM/glm/mat4x4.hpp"
+#include "GLM/glm/ext/matrix_transform.hpp"
+#include "GLM/glm/ext/matrix_clip_space.hpp"
+#include "GLM/glm/ext/scalar_constants.hpp"
+#include "GLM/glm/gtc/type_ptr.hpp"
+#define STB_IMAGE_IMPLEMENTATION
 #include "STB/stb_image.h"
 
 #undef main
@@ -37,10 +45,10 @@ GLuint FragmentShader;
 
 std::vector<float> Vertices = {
 	// Positions        // Colors		     // UVs
-   -0.5f, -0.5f, 0.0f,  0.5f, 0.0f, 0.0f,   0.f, 0.f,   // Bottom-left vertex
-	0.5f, -0.5f, 0.0f,  0.0f, 0.5f, 0.0f,   1.f, 0.f,  // Bottom-right vertex
-   -0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 0.5f,   0.f, 1.f, // Top-Left vertex
-    0.5f,  0.5f, 0.0f,  0.5f, 0.0f, 0.0f,   1.f, 1.f // Top-Right vertex
+   -0.5f, -0.5f, 0.f,  0.5f, 0.0f, 0.0f,   0.f, 0.f,   // Bottom-left vertex
+	0.5f, -0.5f, 0.f,  0.0f, 0.5f, 0.0f,   1.f, 0.f,  // Bottom-right vertex
+   -0.5f,  0.5f, 0.f,  0.0f, 0.0f, 0.5f,   0.f, 1.f, // Top-Left vertex
+    0.5f,  0.5f, 0.f,  0.5f, 0.0f, 0.0f,   1.f, 1.f // Top-Right vertex
 };
 
 std::vector<int> VertexIndices = {
@@ -54,8 +62,43 @@ GLuint VertexArray;
 GLuint IndexBufferObject;
 
 GLuint MeteorTextureID;
+
+glm::mat4 Model;
+
+glm::mat4 Projection;
+
+glm::mat4 View;
+
+
+float XSpeed = 1.f;
+
+float YSpeed = 1.f;
+
+float PlayerXPosition = 0.f;
+
+float PlayerYPosition = 0.f;
+
 #pragma endregion
 
+void CreateMVP()
+{
+	Model = glm::mat4(1.f);
+	
+	Model = glm::scale(Model, glm::vec3(1.f, 1.f, 1.f));
+
+	Model = glm::translate(Model, glm::vec3(PlayerXPosition, PlayerYPosition, -5.f));
+
+	Model = glm::rotate(Model, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
+
+
+	glm::vec3 Eye = glm::vec3(0.f, 0.f, 3.f);
+	glm::vec3 Center = glm::vec3(0.f, 0.f, 0.f);
+	glm::vec3 UpVector = glm::vec3(0.f, 1.f, 0.f);
+	
+	View = glm::lookAt(Eye, Center, UpVector);
+
+	Projection = glm::perspective((float)glm::radians(45.f), float(Width/Height), 0.1f, 100.f);
+}
 
 void Init(int PosX, int PosY, int Height, int Width)
 {
@@ -78,11 +121,11 @@ void Init(int PosX, int PosY, int Height, int Width)
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); // ?
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); // ?
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); // ?
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
 
 	MainGLContext = SDL_GL_CreateContext(MainWindow);
@@ -138,8 +181,9 @@ void Input()
 
 void CleanUp()
 {
-	glDeleteShader;
-	glDetachShader;
+	glDeleteShader(FragmentShader);
+	
+	glDeleteShader(VertexShader);
 
 	SDL_Quit();
 
@@ -223,8 +267,7 @@ void CreateVBOAndVAO()
 
 void PreDraw()
 {
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
+
 
 
 	// Uniform
@@ -232,15 +275,41 @@ void PreDraw()
 
 	glUniform3f(u_Color, 1.f, 0.f, 0.f);
 
+	glEnable(GL_BLEND);
 
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
+	
 	glActiveTexture(GL_TEXTURE0);
 
 	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
 
-
 	GLuint TextureLocation = glGetUniformLocation(Program, "MeteorTexture");
 	if (TextureLocation != -1)
 		glUniform1i(TextureLocation, 0);
+
+
+	// set Matrices
+	GLuint ModelLocation = glGetUniformLocation(Program, "u_Model");
+
+	if (ModelLocation != -1)
+		glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(Model));
+
+	else
+		std::cout << "Can't find Model Location!";
+
+	GLuint ProjectionLocation = glGetUniformLocation(Program, "u_Projection");
+
+	if (ProjectionLocation != -1)
+		glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, glm::value_ptr(Projection));
+	else
+		std::cout << "Can't find Projection Location!";
+
+	GLuint ViewLocation = glGetUniformLocation(Program, "u_View");
+
+	if (ViewLocation)
+		glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, glm::value_ptr(View));
+	else
+		std::cout << "Can't find View Location!";
 
 
 	glDisable(GL_DEPTH_TEST);
@@ -309,6 +378,11 @@ void LoadTexture()
 	stbi_image_free(data);
 }
 
+void MoveCharacter()
+{
+
+}
+
 int main()
 {
 	Init(WindowXPos, WindowYPos, Width, Height);
@@ -319,6 +393,7 @@ int main()
 
 	CreateVBOAndVAO();
 
+	CreateMVP();
 
 	while (!AllowExit)
 	{
