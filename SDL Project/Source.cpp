@@ -11,6 +11,7 @@
 #include "GLM/glm/ext/matrix_clip_space.hpp"
 #include "GLM/glm/ext/scalar_constants.hpp"
 #include "GLM/glm/gtc/type_ptr.hpp"
+#include <cstdlib>;
 #define GLM_ENABLE_EXPERIMENTAL
 #include "GLM/glm/gtx/string_cast.hpp"
 #define STB_IMAGE_IMPLEMENTATION
@@ -126,7 +127,12 @@ class RenderObject
 {
 public:
 
-	RenderObject(GLuint Program)
+	RenderObject()
+	{
+
+	}
+
+	void SetProgram(GLuint Program)
 	{
 		this->Program = Program;
 		glUseProgram(Program);
@@ -915,15 +921,53 @@ int main()
 		0.5f,  0.5f, 0.f,  1.f, 1.f // Top-Right vertex
 	};
 
+	
+	srand(time(nullptr));
 
-	RenderObject Meteor1 = RenderObject(Program);
+	const int NumberOfMeteors = 7;
 
-	Meteor1.CreateModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, -10.f));
+	RenderObject MeteorsObj[NumberOfMeteors];
 
-	Meteor1.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
+	RenderObject* Meteors[NumberOfMeteors];
 
-	Meteor1.CreateBuffers(MeteorVertices, BackgroundVertexIndices);
+	for (int i = 0; i < NumberOfMeteors; i++)
+	{
+		Meteors[i] = &MeteorsObj[i];
+	}
 
+
+
+	float ScaleRand;
+
+	float TranslateRandX;
+
+	float TranslateRandY;
+	
+	float RotationRand;
+
+	for (RenderObject* Meteor : Meteors)
+	
+	{
+		ScaleRand = float(rand() % 100 + 1) / 100.f;
+
+		TranslateRandX = float(rand() % 100 + 1) / 10.f;
+
+		TranslateRandY = float(rand() % 100 + 1) / 10.f;
+
+		RotationRand;
+
+		Meteor->SetProgram(Program);
+
+		Meteor->CreateModel(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(TranslateRandX, TranslateRandY, -10.f));
+
+		Meteor->SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
+
+		Meteor->CreateBuffers(MeteorVertices, BackgroundVertexIndices);
+
+	}
+
+	int testTreshold = 1000.f;
+	int i = 0;
 
 	while (!AllowExit)
 	{
@@ -939,15 +983,21 @@ int main()
 
 		MainBackground.Draw();
 
-		
-		Meteor1.UpdateScale(glm::vec3(1.f, 1.f, 1.f));
+		for (RenderObject* Meteor : Meteors)
+		{
+			// Meteor.UpdateScale(glm::vec3(1.f, 1.f, 1.f));
 
-		Meteor1.UpdateRotation(glm::vec3(0.f, 0.f, 1.f), 15.f);
+			// Meteor.UpdateRotation(glm::vec3(0.f, 0.f, 1.f), 15.f);
 
-		Meteor1.UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
+			Meteor->UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
 
+			if (i < testTreshold)
+				Meteor->Draw(glm::vec3(1.f, 1.f, 1.f));	
 
-		Meteor1.Draw(glm::vec3(1.f, 1.f, 1.f));
+		}
+
+		i++;
+
 
 		// matrix = glm::translate(glm::mat4(1), glm::vec3(x, y, z)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
 
