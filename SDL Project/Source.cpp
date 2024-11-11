@@ -11,11 +11,14 @@
 #include "GLM/glm/ext/matrix_clip_space.hpp"
 #include "GLM/glm/ext/scalar_constants.hpp"
 #include "GLM/glm/gtc/type_ptr.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+#include "GLM/glm/gtx/string_cast.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "STB/stb_image.h"
 
 #undef main
 
+#define GLM_ENABLE_EXPERIMENTAL
 
 #define ASSERT(x) if (!(x)) __debugbreak();
 
@@ -118,6 +121,234 @@ struct Player
 
 #pragma endregion
 
+
+class RenderObject
+{
+public:
+
+	RenderObject(GLuint Program)
+	{
+		this->Program = Program;
+		glUseProgram(Program);
+	}
+
+	void CreateModel(glm::vec3 Scale, glm::vec3 Translate)
+	{
+		this->Scale = Scale;
+
+		this->Translate = Translate;
+
+		this->Model = glm::mat4(1);
+
+		this->Model = glm::scale(this->Model, Scale);
+
+		this->Model = glm::rotate(this->Model, 0.f, glm::vec3(1.f, 0.f, 0.f));
+
+		this->Model = glm::translate(this->Model, Translate);
+
+		//this->Model = glm::scale(Model, Scale);
+
+		//this->Model = glm::translate(Model, Translate);
+
+		//this->Model = glm::rotate(Model, glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f));
+
+	}
+
+	void UpdateScale(glm::vec3 Scale)
+	{
+		this->Scale = Scale;
+
+		this->Model = glm::scale(this->Model, Scale);
+	}
+
+	void UpdateRotation(glm::vec3 RotationAxis, float RotationValue)
+	{
+		this->Model = glm::rotate(this->Model, glm::radians(RotationValue), RotationAxis);
+	}
+
+	void UpdateTranslate(glm::vec3 Translate)
+	{
+		this->Translate = Translate;
+		this->Model = glm::translate(this->Model, Translate);
+		// this->Model = glm::translate(glm::mat4(1), glm::vec3(0.1, 0.f, 0.f)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
+	}
+
+	GLuint SetTexture(std::string TexturePath, float AlphaReductionScale)
+	{
+		glGenTextures(1, &TextureID);
+
+		glBindTexture(GL_TEXTURE_2D, TextureID);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+
+		int width, height, nrChannels;
+		unsigned char* data = stbi_load(TexturePath.c_str(), &width, &height, &nrChannels, 0);
+		if (!data)
+		{
+			std::cout << "Texture Data was not found!";
+			return 0;
+		}
+		// make it transparent
+		if (nrChannels == 4)  // If the texture has an alpha channel (RGBA)
+		{
+			// Modify alpha (reduce transparency)
+			for (int i = 0; i < width * height * 4; i += 4) {
+				data[i + 3] = data[i + 3] * AlphaReductionScale; // reduce alpha
+			}
+		}
+		GLuint ColorFormat = nrChannels == 4 ? GL_RGBA : GL_RGB;
+		glTexImage2D(GL_TEXTURE_2D, 0, ColorFormat, width, height, 0, ColorFormat, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+		stbi_image_free(data);
+		return TextureID;
+	}
+
+	void CreateBuffers(std::vector<float> Vertices, std::vector<int> VerticesIndex)
+	{
+		// VBO
+		glGenBuffers(1, &VBO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
+
+		// VAO
+		glGenVertexArrays(1, &VAO);
+		glBindVertexArray(VAO);
+
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(2);
+
+		// IBO
+		glGenBuffers(1, &IBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, VerticesIndex.size() * sizeof(float), VerticesIndex.data(), GL_STATIC_DRAW);
+
+	}
+
+private:
+	void PreDraw(glm::vec3 Color)
+	{
+		// Uniform
+		GLuint u_Color = glGetUniformLocation(Program, "u_Color");
+
+		glUniform3f(u_Color, Color.r, Color.g, Color.b);
+
+		// glEnable(GL_BLEND);
+
+		// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
+
+		glActiveTexture(GL_TEXTURE0);
+
+		glBindTexture(GL_TEXTURE_2D, TextureID);
+
+		GLuint TextureLocation = glGetUniformLocation(Program, "MeteorTexture");
+
+		if (TextureLocation == -1)
+			std::cout << "Texture Location was not found!";
+
+		if (TextureLocation != -1)
+			glUniform1i(TextureLocation, 0);
+
+
+		// set Matrices
+		// this->Model = TranslateMat * RotationMat * ScaleMat;
+		GLuint ModelLocation = glGetUniformLocation(Program, "u_Model");
+
+		if (ModelLocation != -1)
+			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(this->Model));
+
+		else
+			std::cout << "Can't find Model Location!";
+
+		// std::cout << glm::to_string(TranslateMat) << std::endl;
+		//this->Model = glm::mat4(1);
+		//this->RotationMat = glm::mat4(1);
+		//this->ScaleMat = glm::mat4(1);
+		//this->TranslateMat = glm::mat4(1);
+
+		GLuint ProjectionLocation = glGetUniformLocation(Program, "u_Projection");
+
+		if (ProjectionLocation != -1)
+			glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, glm::value_ptr(Projection));
+		else
+			std::cout << "Can't find Projection Location!";
+
+		GLuint ViewLocation = glGetUniformLocation(Program, "u_View");
+
+		if (ViewLocation)
+			glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, glm::value_ptr(View));
+		else
+			std::cout << "Can't find View Location!";
+
+		// glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+		glUseProgram(Program);
+	}
+public:
+
+	void Draw(glm::vec3 Color)
+	{
+		PreDraw(Color);
+
+		// DRAW
+		glBindVertexArray(VAO);
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+
+		glEnableVertexAttribArray(0);
+
+		glEnableVertexAttribArray(2);
+
+		glActiveTexture(GL_TEXTURE1);
+
+		glBindTexture(GL_TEXTURE_2D, TextureID);
+
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		// SDL_GL_SwapWindow(MainWindow);
+	}
+
+
+
+	__forceinline GLuint GetTextureID() { return TextureID; }
+	__forceinline GLuint GetVAO() { return VAO; }
+	__forceinline GLuint GetVBO() { return VBO; }
+	__forceinline GLuint GetIBO() { return IBO; }
+
+	glm::mat4 Model = glm::mat4(1);
+	glm::mat4 TranslateMat;
+
+	glm::mat4 ScaleMat;
+
+	glm::mat4 RotationMat;
+private:
+
+	GLuint VAO;
+	GLuint VBO;
+	GLuint IBO;
+	// GLuint Program;
+	GLuint TextureID;
+	GLuint Program;
+	// std::vector<float> Vertices = {};
+
+	glm::vec3 Scale = glm::vec3(3.f, 3.f, 3.f);
+	glm::vec3 Translate = glm::vec3(0.f, 0.f, 0.f);
+
+
+
+
+};
 
 class Background // implement
 {
@@ -223,9 +454,9 @@ private:
 
 		glUniform3f(u_Color, 1.f, 1.f, 1.f);
 
-		glEnable(GL_BLEND);
+		//glEnable(GL_BLEND);
 
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
 
 		glActiveTexture(GL_TEXTURE1);
 
@@ -389,6 +620,10 @@ void Init()
 
 	glDisable(GL_CULL_FACE);
 
+	glEnable(GL_BLEND);
+
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	glViewport(GLint(0), GLint(0), GLint(Width), GLint(Height));
 
 	glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
@@ -532,11 +767,6 @@ void PreDraw()
 
 	glUniform3f(u_Color, 1.f, 0.f, 0.f);
 
-	// glEnable(GL_BLEND);
-
-	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
-
-
 
 	glActiveTexture(GL_TEXTURE0);
 
@@ -657,10 +887,10 @@ int main()
 
 	std::vector<float> BackgroundVertices = {
 		// Positions        // UVs
-	   -0.5f, -0.5f, -10.f,  0.f, 0.f,   // Bottom-left vertex
-		0.5f, -0.5f, -10.f,  1.f, 0.f,  // Bottom-right vertex
-	   -0.5f,  0.5f, -10.f,  0.f, 1.f, // Top-Left vertex
-		0.5f,  0.5f, -10.f,  1.f, 1.f // Top-Right vertex
+	   -0.5f, -0.5f, -11.f,  0.f, 0.f,   // Bottom-left vertex
+		0.5f, -0.5f, -11.f,  1.f, 0.f,  // Bottom-right vertex
+	   -0.5f,  0.5f, -11.f,  0.f, 1.f, // Top-Left vertex
+		0.5f,  0.5f, -11.f,  1.f, 1.f // Top-Right vertex
 	};
 
 	std::vector<int> BackgroundVertexIndices = {
@@ -676,6 +906,25 @@ int main()
 
 	MainBackground.CreateBuffers(BackgroundVertices, BackgroundVertexIndices);
 
+
+	std::vector<float> MeteorVertices = {
+		// Positions        // UVs
+	   -0.5f, -0.5f, 0.f,  0.f, 0.f,   // Bottom-left vertex
+		0.5f, -0.5f, 0.f,  1.f, 0.f,  // Bottom-right vertex
+	   -0.5f,  0.5f, 0.f,  0.f, 1.f, // Top-Left vertex
+		0.5f,  0.5f, 0.f,  1.f, 1.f // Top-Right vertex
+	};
+
+
+	RenderObject Meteor1 = RenderObject(Program);
+
+	Meteor1.CreateModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, -10.f));
+
+	Meteor1.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
+
+	Meteor1.CreateBuffers(MeteorVertices, BackgroundVertexIndices);
+
+
 	while (!AllowExit)
 	{
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
@@ -689,6 +938,26 @@ int main()
 		Draw();
 
 		MainBackground.Draw();
+
+		
+		Meteor1.UpdateScale(glm::vec3(1.f, 1.f, 1.f));
+
+		Meteor1.UpdateRotation(glm::vec3(0.f, 0.f, 1.f), 15.f);
+
+		Meteor1.UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
+
+
+		Meteor1.Draw(glm::vec3(1.f, 1.f, 1.f));
+
+		// matrix = glm::translate(glm::mat4(1), glm::vec3(x, y, z)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
+
+		// Meteor1.Model = glm::mat4(1.f);
+
+		//Meteor1.RotationMat = glm::rotate(glm::mat4(1.f), 0.f, glm::vec3(1.f, 0.f, 0.f));
+
+		//Meteor1.ScaleMat = glm::scale(glm::mat4(1), glm::vec3(1.f, 1.f, 1.f));
+
+		//Meteor1.TranslateMat = glm::translate(glm::mat4(1), glm::vec3(0.f, 0.f, 0.f));
 
 		SDL_GL_SwapWindow(MainWindow);
 
