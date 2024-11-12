@@ -106,17 +106,16 @@ float PlayerXTranslation = 0.f;
 
 float PlayerXTranslationTreshold = 0.08f;
 
-struct Enemy
-{
-	GLuint Texture;
-	glm::vec3 SpawnLocation;
-	float Scale;
-	float Speed;
-};
 
-struct Player
+struct Transformation
 {
+	glm::mat4 Translation;
 
+	glm::mat4 Rotation;
+
+	glm::mat4 Scale;
+
+	glm::mat4 Transformation;
 };
 
 
@@ -129,6 +128,8 @@ public:
 
 	RenderObject()
 	{
+		// transformation.Transformation = glm::mat4(1.f);
+
 
 	}
 
@@ -136,6 +137,21 @@ public:
 	{
 		this->Program = Program;
 		glUseProgram(Program);
+	}
+
+	void SetModel(glm::vec3 Scale, glm::vec3 RotationAxis, float RotationValue, glm::vec3 Translate)
+	{
+		// Apply transformations in correct order: Scale -> Rotate -> Translate
+		transformation.Transformation = glm::mat4(1.f);
+
+		transformation.Transformation = glm::translate(transformation.Transformation, Translate);
+
+		transformation.Transformation = glm::rotate(transformation.Transformation, glm::radians(RotationValue), RotationAxis);
+
+		transformation.Transformation = glm::scale(transformation.Transformation, Scale);
+
+		// Combine transformations in the correct order: Translation * Rotation * Scale
+		// transformation.Transformation = transformation.Translation * transformation.Rotation * transformation.Scale;
 	}
 
 	void CreateModel(glm::vec3 Scale, glm::vec3 Translate)
@@ -146,11 +162,13 @@ public:
 
 		this->Model = glm::mat4(1);
 
-		this->Model = glm::scale(this->Model, Scale);
+		transformation.Scale = glm::scale(glm::mat4(1), Scale);
 
-		this->Model = glm::rotate(this->Model, 0.f, glm::vec3(1.f, 0.f, 0.f));
+		transformation.Rotation = glm::rotate(glm::mat4(1), 0.f, glm::vec3(0.f, 0.f, 1.f));
 
-		this->Model = glm::translate(this->Model, Translate);
+		transformation.Translation = glm::translate(glm::mat4(1), Translate);
+
+		transformation.Transformation = transformation.Rotation * transformation.Translation * transformation.Scale;
 
 		//this->Model = glm::scale(Model, Scale);
 
@@ -270,7 +288,7 @@ private:
 		GLuint ModelLocation = glGetUniformLocation(Program, "u_Model");
 
 		if (ModelLocation != -1)
-			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(this->Model));
+			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(transformation.Transformation));
 
 		else
 			std::cout << "Can't find Model Location!";
@@ -351,7 +369,7 @@ private:
 	glm::vec3 Scale = glm::vec3(3.f, 3.f, 3.f);
 	glm::vec3 Translate = glm::vec3(0.f, 0.f, 0.f);
 
-
+	Transformation transformation;
 
 
 };
@@ -878,6 +896,8 @@ void MoveCharacter()
 
 }
 
+
+
 int main()
 {
 	Init();
@@ -921,14 +941,16 @@ int main()
 		0.5f,  0.5f, 0.f,  1.f, 1.f // Top-Right vertex
 	};
 
-	
-	srand(time(nullptr));
 
-	const int NumberOfMeteors = 7;
+	const int NumberOfMeteors = 1;
+
+	// glm::mat4 MeteorsTransformation[NumberOfMeteors];
 
 	RenderObject MeteorsObj[NumberOfMeteors];
 
 	RenderObject* Meteors[NumberOfMeteors];
+
+	srand(time(nullptr));
 
 	for (int i = 0; i < NumberOfMeteors; i++)
 	{
@@ -942,11 +964,22 @@ int main()
 	float TranslateRandX;
 
 	float TranslateRandY;
-	
+
 	float RotationRand;
 
+	float CurentMeteorScale = 1.f;
+
+	float CurrentMeteorTranslationX = 0.01f;
+
+	float TranslationAdditiveVal = 0.01;
+
+	float CurrentMeteorRotation = 0.0f;
+
+	float RotationAdditiveVal = 1.f;
+
+
 	for (RenderObject* Meteor : Meteors)
-	
+
 	{
 		ScaleRand = float(rand() % 100 + 1) / 100.f;
 
@@ -958,7 +991,10 @@ int main()
 
 		Meteor->SetProgram(Program);
 
-		Meteor->CreateModel(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(TranslateRandX, TranslateRandY, -10.f));
+
+		Meteor->SetModel(glm::vec3(CurentMeteorScale, CurentMeteorScale, CurentMeteorScale), glm::vec3(0.f, 0.f, 1.f), CurrentMeteorRotation, glm::vec3(CurrentMeteorTranslationX, 1.f, -7.f));
+
+		// Meteor->CreateModel(glm::vec3(1, 1, 1), glm::vec3(1, 3.f, -10.f));
 
 		Meteor->SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
 
@@ -989,10 +1025,17 @@ int main()
 
 			// Meteor.UpdateRotation(glm::vec3(0.f, 0.f, 1.f), 15.f);
 
-			Meteor->UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
+			//Meteor->UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
 
-			if (i < testTreshold)
-				Meteor->Draw(glm::vec3(1.f, 1.f, 1.f));	
+			//if (i < testTreshold)
+			
+			CurrentMeteorTranslationX += TranslationAdditiveVal;
+
+			CurrentMeteorRotation += RotationAdditiveVal;
+
+			Meteor->SetModel(glm::vec3(CurentMeteorScale, CurentMeteorScale, CurentMeteorScale), glm::vec3(0.f, 0.f, 1.f), CurrentMeteorRotation, glm::vec3(CurrentMeteorTranslationX, 1.0, -7.0));
+
+			Meteor->Draw(glm::vec3(1.f, 1.f, 1.f));
 
 		}
 
