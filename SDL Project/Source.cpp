@@ -47,64 +47,7 @@ static bool GLLogError(const char* function, const char* file, int line)
 
 
 #pragma region Definitions
-bool ColorTest = true;
 
-int WindowXPos = 10;
-
-int WindowYPos = 10;
-
-int Width = 600;
-
-int Height = 600;
-
-bool AllowExit = false;
-
-std::string FragmentShaderSource;
-
-std::string VertexShaderSource;
-
-SDL_GLContext MainGLContext(nullptr);
-
-SDL_Window* MainWindow(nullptr);
-
-GLuint Program;
-
-GLuint VertexShader;
-
-GLuint FragmentShader;
-
-std::vector<float> Vertices = {
-	// Positions        // Colors		     // UVs
-   -0.5f, -0.5f, 0.f,  0.5f, 0.0f, 0.0f,   0.f, 0.f,   // Bottom-left vertex
-	0.5f, -0.5f, 0.f,  0.0f, 0.5f, 0.0f,   1.f, 0.f,  // Bottom-right vertex
-   -0.5f,  0.5f, 0.f,  0.0f, 0.0f, 0.5f,   0.f, 1.f, // Top-Left vertex
-	0.5f,  0.5f, 0.f,  0.5f, 0.0f, 0.0f,   1.f, 1.f // Top-Right vertex
-};
-
-std::vector<int> VertexIndices = {
-	0, 1, 2, 1, 3, 2
-};
-
-GLuint VertexBuffer;
-
-GLuint VertexArray;
-
-GLuint IndexBufferObject;
-
-GLuint MeteorTextureID;
-
-glm::mat4 Model;
-
-glm::mat4 Projection;
-
-glm::mat4 View;
-
-
-float XSpeed = 0.015f;
-
-float PlayerXTranslation = 0.f;
-
-float PlayerXTranslationTreshold = 0.08f;
 
 
 struct Transformation
@@ -128,20 +71,30 @@ public:
 
 	RenderObject()
 	{
-		// transformation.Transformation = glm::mat4(1.f);
-
 
 	}
 
 	void SetProgram(GLuint Program)
 	{
 		this->Program = Program;
-		glUseProgram(Program);
+	}
+
+	void SetView()
+	{
+		glm::vec3 Eye = glm::vec3(0.f, 0.f, 3.f);
+		glm::vec3 Center = glm::vec3(0.f, 0.f, 0.f);
+		glm::vec3 UpVector = glm::vec3(0.f, 1.f, 0.f);
+
+		this->View = glm::lookAt(Eye, Center, UpVector);
+	}
+
+	void SetProjection(float Width, float Height)
+	{
+		this->Projection = glm::perspective((float)glm::radians(45.f), float(Width / Height), 0.1f, 100.f);
 	}
 
 	void SetModel(glm::vec3 Scale, glm::vec3 RotationAxis, float RotationValue, glm::vec3 Translate)
 	{
-		// Apply transformations in correct order: Scale -> Rotate -> Translate
 		transformation.Transformation = glm::mat4(1.f);
 
 		transformation.Transformation = glm::translate(transformation.Transformation, Translate);
@@ -149,53 +102,8 @@ public:
 		transformation.Transformation = glm::rotate(transformation.Transformation, glm::radians(RotationValue), RotationAxis);
 
 		transformation.Transformation = glm::scale(transformation.Transformation, Scale);
-
-		// Combine transformations in the correct order: Translation * Rotation * Scale
-		// transformation.Transformation = transformation.Translation * transformation.Rotation * transformation.Scale;
 	}
 
-	void CreateModel(glm::vec3 Scale, glm::vec3 Translate)
-	{
-		this->Scale = Scale;
-
-		this->Translate = Translate;
-
-		this->Model = glm::mat4(1);
-
-		transformation.Scale = glm::scale(glm::mat4(1), Scale);
-
-		transformation.Rotation = glm::rotate(glm::mat4(1), 0.f, glm::vec3(0.f, 0.f, 1.f));
-
-		transformation.Translation = glm::translate(glm::mat4(1), Translate);
-
-		transformation.Transformation = transformation.Rotation * transformation.Translation * transformation.Scale;
-
-		//this->Model = glm::scale(Model, Scale);
-
-		//this->Model = glm::translate(Model, Translate);
-
-		//this->Model = glm::rotate(Model, glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f));
-
-	}
-
-	void UpdateScale(glm::vec3 Scale)
-	{
-		this->Scale = Scale;
-
-		this->Model = glm::scale(this->Model, Scale);
-	}
-
-	void UpdateRotation(glm::vec3 RotationAxis, float RotationValue)
-	{
-		this->Model = glm::rotate(this->Model, glm::radians(RotationValue), RotationAxis);
-	}
-
-	void UpdateTranslate(glm::vec3 Translate)
-	{
-		this->Translate = Translate;
-		this->Model = glm::translate(this->Model, Translate);
-		// this->Model = glm::translate(glm::mat4(1), glm::vec3(0.1, 0.f, 0.f)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
-	}
 
 	GLuint SetTexture(std::string TexturePath, float AlphaReductionScale)
 	{
@@ -262,19 +170,16 @@ private:
 	void PreDraw(glm::vec3 Color)
 	{
 		// Uniform
-		GLuint u_Color = glGetUniformLocation(Program, "u_Color");
+		GLuint u_Color = glGetUniformLocation(this->Program, "u_Color");
 
 		glUniform3f(u_Color, Color.r, Color.g, Color.b);
 
-		// glEnable(GL_BLEND);
-
-		// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
 
 		glActiveTexture(GL_TEXTURE0);
 
 		glBindTexture(GL_TEXTURE_2D, TextureID);
 
-		GLuint TextureLocation = glGetUniformLocation(Program, "MeteorTexture");
+		GLuint TextureLocation = glGetUniformLocation(this->Program, "MeteorTexture");
 
 		if (TextureLocation == -1)
 			std::cout << "Texture Location was not found!";
@@ -284,8 +189,7 @@ private:
 
 
 		// set Matrices
-		// this->Model = TranslateMat * RotationMat * ScaleMat;
-		GLuint ModelLocation = glGetUniformLocation(Program, "u_Model");
+		GLuint ModelLocation = glGetUniformLocation(this->Program, "u_Model");
 
 		if (ModelLocation != -1)
 			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(transformation.Transformation));
@@ -293,29 +197,23 @@ private:
 		else
 			std::cout << "Can't find Model Location!";
 
-		// std::cout << glm::to_string(TranslateMat) << std::endl;
-		//this->Model = glm::mat4(1);
-		//this->RotationMat = glm::mat4(1);
-		//this->ScaleMat = glm::mat4(1);
-		//this->TranslateMat = glm::mat4(1);
 
-		GLuint ProjectionLocation = glGetUniformLocation(Program, "u_Projection");
+		GLuint ProjectionLocation = glGetUniformLocation(this->Program, "u_Projection");
 
 		if (ProjectionLocation != -1)
-			glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, glm::value_ptr(Projection));
+			glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, glm::value_ptr(this->Projection));
+
 		else
 			std::cout << "Can't find Projection Location!";
 
-		GLuint ViewLocation = glGetUniformLocation(Program, "u_View");
+		GLuint ViewLocation = glGetUniformLocation(this->Program, "u_View");
 
 		if (ViewLocation)
-			glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, glm::value_ptr(View));
+			glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, glm::value_ptr(this->View));
 		else
 			std::cout << "Can't find View Location!";
 
-		// glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-		glUseProgram(Program);
+		glUseProgram(this->Program);
 	}
 public:
 
@@ -340,265 +238,35 @@ public:
 
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		// SDL_GL_SwapWindow(MainWindow);
 	}
 
-
-
 	__forceinline GLuint GetTextureID() { return TextureID; }
+
 	__forceinline GLuint GetVAO() { return VAO; }
+
 	__forceinline GLuint GetVBO() { return VBO; }
+
 	__forceinline GLuint GetIBO() { return IBO; }
 
-	glm::mat4 Model = glm::mat4(1);
-	glm::mat4 TranslateMat;
-
-	glm::mat4 ScaleMat;
-
-	glm::mat4 RotationMat;
 private:
 
 	GLuint VAO;
 	GLuint VBO;
 	GLuint IBO;
-	// GLuint Program;
 	GLuint TextureID;
 	GLuint Program;
-	// std::vector<float> Vertices = {};
-
-	glm::vec3 Scale = glm::vec3(3.f, 3.f, 3.f);
-	glm::vec3 Translate = glm::vec3(0.f, 0.f, 0.f);
 
 	Transformation transformation;
 
+	glm::mat4 Projection;
 
-};
-
-class Background // implement
-{
-public:
-
-	Background(GLuint Program)
-	{
-		this->Program = Program;
-		glUseProgram(Program);
-	}
-
-	void CreateModel(glm::vec3 Scale, glm::vec3 Translate)
-	{
-		this->Scale = Scale;
-
-		this->Translate = Translate;
-
-		this->Model = glm::mat4(1);
-
-		this->Model = glm::scale(Model, Scale);
-
-		this->Model = glm::rotate(Model, glm::radians(180.f), glm::vec3(0.f, 0.f, 1.f));
-
-		this->Model = glm::translate(Model, Translate);
-	}
-
-	GLuint SetTexture(std::string TexturePath)
-	{
-		glGenTextures(1, &TextureID);
-
-		glBindTexture(GL_TEXTURE_2D, TextureID);
-
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		int width, height, nrChannels;
-		unsigned char* data = stbi_load(TexturePath.c_str(), &width, &height, &nrChannels, 0);
-		if (!data)
-		{
-			std::cout << "Texture Data was not found!";
-			return 0;
-		}
-		// make it transparent
-		if (nrChannels == 4)  // If the texture has an alpha channel (RGBA)
-		{
-			// Modify alpha (reduce transparency)
-			for (int i = 0; i < width * height * 4; i += 4) {
-				data[i + 3] = data[i + 3] * 0.4f; // Reduce alpha (50% opacity)
-			}
-		}
-		GLuint ColorFormat = nrChannels == 4 ? GL_RGBA : GL_RGB;
-		glTexImage2D(GL_TEXTURE_2D, 0, ColorFormat, width, height, 0, ColorFormat, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-		stbi_image_free(data);
-		return TextureID;
-	}
-
-	void CreateBuffers(std::vector<float> Vertices, std::vector<int> VerticesIndex)
-	{
-		// VBO
-		glGenBuffers(1, &VBO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
-
-		// VAO
-		glGenVertexArrays(1, &VAO);
-		glBindVertexArray(VAO);
-
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(0);
-
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-		glEnableVertexAttribArray(2);
-
-		// IBO
-		glGenBuffers(1, &IBO);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, VerticesIndex.size() * sizeof(float), VerticesIndex.data(), GL_STATIC_DRAW);
-
-		// Texture
-		//glGenTextures(1, &TextureID);
-		//glBindTexture(GL_TEXTURE_2D, TextureID);
-		// glTextureBuffer();
-
-	}
-
-private:
-	void PreDraw()
-	{
-		// GLEnable(GL_DEPTH_TEST);
-		// Uniform
-		GLuint u_Color = glGetUniformLocation(Program, "u_Color");
-
-		glUniform3f(u_Color, 1.f, 1.f, 1.f);
-
-		//glEnable(GL_BLEND);
-
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // handle alphas in shaders
-
-		glActiveTexture(GL_TEXTURE1);
-
-		glBindTexture(GL_TEXTURE_2D, TextureID);
-
-		GLuint TextureLocation = glGetUniformLocation(Program, "MeteorTexture");
-
-		if (TextureLocation == -1)
-			std::cout << "Texture Location was not found!";
-
-		if (TextureLocation != -1)
-			glUniform1i(TextureLocation, 1);
-
-
-		// set Matrices
-		GLuint ModelLocation = glGetUniformLocation(Program, "u_Model");
-
-		if (ModelLocation != -1)
-			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(this->Model));
-
-		else
-			std::cout << "Can't find Model Location!";
-
-		GLuint ProjectionLocation = glGetUniformLocation(Program, "u_Projection");
-
-		if (ProjectionLocation != -1)
-			glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, glm::value_ptr(Projection));
-		else
-			std::cout << "Can't find Projection Location!";
-
-		GLuint ViewLocation = glGetUniformLocation(Program, "u_View");
-
-		if (ViewLocation)
-			glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, glm::value_ptr(View));
-		else
-			std::cout << "Can't find View Location!";
-
-		// glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-		glUseProgram(Program);
-	}
-public:
-
-	void Draw()
-	{
-		PreDraw();
-
-		// DRAW
-		glBindVertexArray(VAO);
-
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-
-		glEnableVertexAttribArray(0);
-
-		glEnableVertexAttribArray(2);
-
-		glActiveTexture(GL_TEXTURE1);
-
-		glBindTexture(GL_TEXTURE_2D, TextureID);
-
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-		// SDL_GL_SwapWindow(MainWindow);
-	}
-
-
-
-	__forceinline GLuint GetTextureID() { return TextureID; }
-	__forceinline GLuint GetVAO() { return VAO; }
-	__forceinline GLuint GetVBO() { return VBO; }
-	__forceinline GLuint GetIBO() { return IBO; }
-
-private:
-
-	GLuint VAO;
-	GLuint VBO;
-	GLuint IBO;
-	// GLuint Program;
-	GLuint TextureID;
-	GLuint Program;
-	// std::vector<float> Vertices = {};
-
-	glm::vec3 Scale = glm::vec3(3.f, 3.f, 3.f);
-	glm::vec3 Translate = glm::vec3(0.f, 0.f, 0.f);
-	glm::mat4 Model = glm::mat4(1);
-
-
+	glm::mat4 View;
 };
 
 
 
-void CreateMVP()
+void Init(SDL_Window*& MainWindow, SDL_GLContext& MainGLContext,float WindowXPos, float WindowYPos, float Width, float Height)
 {
-
-	// Player
-	Model = glm::mat4(1.f);
-
-	Model = glm::scale(Model, glm::vec3(1.f, 1.f, 1.f));
-
-	Model = glm::translate(Model, glm::vec3(0.f, -4.2f, -10.f));
-
-	Model = glm::rotate(Model, glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
-
-
-	glm::vec3 Eye = glm::vec3(0.f, 0.f, 3.f);
-	glm::vec3 Center = glm::vec3(0.f, 0.f, 0.f);
-	glm::vec3 UpVector = glm::vec3(0.f, 1.f, 0.f);
-
-	View = glm::lookAt(Eye, Center, UpVector);
-
-	Projection = glm::perspective((float)glm::radians(45.f), float(Width / Height), 0.1f, 100.f);
-}
-
-void Init()
-{
-
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		std::cout << "Cannot Init SDL!";
@@ -632,8 +300,7 @@ void Init()
 		exit(0);
 	}
 
-
-	if (!gladLoadGLLoader(SDL_GL_GetProcAddress))
+	if (gladLoadGLLoader(SDL_GL_GetProcAddress) == 0)
 	{
 		std::cout << "Cannot Load GL Loader!";
 		exit(0);
@@ -649,9 +316,8 @@ void Init()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glViewport(GLint(0), GLint(0), GLint(Width), GLint(Height));
-
+	
 	glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
-
 }
 
 std::string ReadShaderFile(std::string filepath)
@@ -669,7 +335,7 @@ std::string ReadShaderFile(std::string filepath)
 	return shaderSource;
 }
 
-void Input()
+void Input(float& PlayerXTranslation, float XSpeed, bool& AllowExit, float DeltaTime)
 {
 	SDL_Event Event;
 
@@ -679,7 +345,7 @@ void Input()
 		if (InputEventState[SDL_SCANCODE_LEFT])
 		{
 			std::cout << "Left Button Is Pressed!" << std::endl;
-			PlayerXTranslation = -XSpeed;
+			PlayerXTranslation -= XSpeed * DeltaTime;
 		}
 
 		if (Event.type == SDL_QUIT)
@@ -692,12 +358,12 @@ void Input()
 		if (InputEventState[SDL_SCANCODE_RIGHT])
 		{
 			std::cout << "Right Button Is Pressed!" << std::endl;
-			PlayerXTranslation = XSpeed;
+			PlayerXTranslation += XSpeed * DeltaTime;
 		}
 	}
 }
 
-void CleanUp()
+void CleanUp(GLuint FragmentShader, GLuint VertexShader, SDL_Window*& MainWindow) // correct it
 {
 	glDeleteShader(FragmentShader);
 
@@ -708,191 +374,48 @@ void CleanUp()
 	SDL_DestroyWindow(MainWindow);
 }
 
-void CreateProgram()
+GLuint CreateProgram(GLuint FragmentShader, GLuint VertexShader)
 {
-	Program = glCreateProgram();
-}
-
-void CreateShader()
-{
-	VertexShaderSource = ReadShaderFile("Vertex_Shader.glsl");
-
-	FragmentShaderSource = ReadShaderFile("Fragment_Shader.glsl");
-
-	VertexShader = glCreateShader(GL_VERTEX_SHADER);
-
-	const GLchar* Code = VertexShaderSource.c_str();
-
-	glShaderSource(VertexShader, 1, &Code, nullptr);
-
-	glCompileShader(VertexShader);
-
-
-	FragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-	Code = FragmentShaderSource.c_str();
-
-	glShaderSource(FragmentShader, 1, &Code, nullptr);
-
-	glCompileShader(FragmentShader);
-
-
-	CreateProgram();
+	GLuint Program = glCreateProgram();
 
 	glAttachShader(Program, VertexShader);
 
 	glAttachShader(Program, FragmentShader);
 
 	glLinkProgram(Program);
+
+	return Program;
+}
+
+GLuint CreateShader(std::string ShaderPath, GLenum ShaderType)
+{
+	std::string ShaderSource = ReadShaderFile(ShaderPath);
+
+	GLuint Shader = glCreateShader(ShaderType);
+
+	const GLchar* ShaderCode = ShaderSource.c_str();
+
+	glShaderSource(Shader, 1, &ShaderCode, nullptr);
+
+	glCompileShader(Shader);
+
+	return Shader;
+
 }
 
 
-
-void CreateVBOAndVAO()
+void MoveCharacter(float& PlayerXTranslation, float XSpeed, float PlayerXTranslationTreshold)
 {
-	// VBO
-	glGenBuffers(1, &VertexBuffer);
+	//if (PlayerXTranslation > 0)
+	//	PlayerXTranslation += XSpeed;
 
-	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
+	//if (PlayerXTranslation < 0)
+	//	PlayerXTranslation -= XSpeed;
 
-	glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
+	// Model = glm::translate(Model, glm::vec3(PlayerXTranslation, 0.f, 0.f));
 
-
-	// VAO
-	glGenVertexArrays(1, &VertexArray);
-
-	glBindVertexArray(VertexArray);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)0);
-
-	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)(3 * sizeof(float)));
-
-	glEnableVertexAttribArray(1);
-
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_TRUE, 8 * sizeof(float), (int*)(6 * sizeof(float)));
-
-	glEnableVertexAttribArray(2);
-
-	// IBO
-	glGenBuffers(1, &IndexBufferObject);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferObject);
-
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, VertexIndices.size() * sizeof(int), VertexIndices.data(), GL_STATIC_DRAW);
-
-}
-
-void PreDraw()
-{
-	// Uniform
-	GLuint u_Color = glGetUniformLocation(Program, "u_Color");
-
-	glUniform3f(u_Color, 1.f, 0.f, 0.f);
-
-
-	glActiveTexture(GL_TEXTURE0);
-
-	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
-
-	GLuint TextureLocation = glGetUniformLocation(Program, "MeteorTexture");
-	if (TextureLocation != -1)
-		glUniform1i(TextureLocation, 0);
-
-
-	// set Matrices
-	GLuint ModelLocation = glGetUniformLocation(Program, "u_Model");
-
-	if (ModelLocation != -1)
-		glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(Model));
-
-	else
-		std::cout << "Can't find Model Location!";
-
-	GLuint ProjectionLocation = glGetUniformLocation(Program, "u_Projection");
-
-	if (ProjectionLocation != -1)
-		glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, glm::value_ptr(Projection));
-	else
-		std::cout << "Can't find Projection Location!";
-
-	GLuint ViewLocation = glGetUniformLocation(Program, "u_View");
-
-	if (ViewLocation)
-		glUniformMatrix4fv(ViewLocation, 1, GL_FALSE, glm::value_ptr(View));
-	else
-		std::cout << "Can't find View Location!";
-
-
-	// glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-	glUseProgram(Program);
-}
-
-void Draw()
-{
-	glBindVertexArray(VertexArray);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferObject);
-
-	glEnableVertexAttribArray(0);
-
-	glEnableVertexAttribArray(1);
-
-	glEnableVertexAttribArray(2);
-
-	glActiveTexture(GL_TEXTURE0);
-
-	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
-
-	// glDrawArrays(GL_TRIANGLES, 0, 6);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-	// SDL_GL_SwapWindow(MainWindow);
-}
-
-void LoadTexture()
-{
-	glGenTextures(1, &MeteorTextureID);
-
-	glBindTexture(GL_TEXTURE_2D, MeteorTextureID);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	int width, height, nrChannels;
-	unsigned char* data = stbi_load("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", &width, &height, &nrChannels, 0);
-	if (data)
-	{
-		GLuint ColorFormat = nrChannels == 4 ? GL_RGBA : GL_RGB;
-		glTexImage2D(GL_TEXTURE_2D, 0, ColorFormat, width, height, 0, ColorFormat, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-
-	stbi_image_free(data);
-}
-
-void MoveCharacter()
-{
-	if (PlayerXTranslation > 0)
-		PlayerXTranslation += XSpeed;
-
-	if (PlayerXTranslation < 0)
-		PlayerXTranslation -= XSpeed;
-
-	Model = glm::translate(Model, glm::vec3(PlayerXTranslation, 0.f, 0.f));
-
-	if (PlayerXTranslation >= PlayerXTranslationTreshold || PlayerXTranslation <= -PlayerXTranslationTreshold)
-		PlayerXTranslation = 0.f;
+	//if (PlayerXTranslation >= PlayerXTranslationTreshold || PlayerXTranslation <= -PlayerXTranslationTreshold)
+	//	PlayerXTranslation = 0.f;
 
 }
 
@@ -900,16 +423,13 @@ void MoveCharacter()
 
 int main()
 {
-	Init();
-
-	CreateShader();
-
-	LoadTexture();
-
-	CreateVBOAndVAO();
-
-	CreateMVP();
-
+	std::vector<float> MeteorVertices = {
+		// Positions        // UVs
+	   -0.5f, -0.5f, 0.f,  0.f, 0.f,   // Bottom-left vertex
+		0.5f, -0.5f, 0.f,  1.f, 0.f,  // Bottom-right vertex
+	   -0.5f,  0.5f, 0.f,  0.f, 1.f, // Top-Left vertex
+		0.5f,  0.5f, 0.f,  1.f, 1.f // Top-Right vertex
+	};
 
 	std::vector<float> BackgroundVertices = {
 		// Positions        // UVs
@@ -919,27 +439,85 @@ int main()
 		0.5f,  0.5f, -11.f,  1.f, 1.f // Top-Right vertex
 	};
 
-	std::vector<int> BackgroundVertexIndices = {
+	std::vector<int> RectangleVertexIndices = {
 		0, 1, 2, 1, 3, 2
 	};
 
+	SDL_GLContext MainGLContext(nullptr);
 
-	Background MainBackground = Background(Program);
+	SDL_Window* MainWindow(nullptr);
 
-	MainBackground.CreateModel(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 0.f));
+	int WindowXPos = 10;
 
-	MainBackground.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg");
+	int WindowYPos = 10;
 
-	MainBackground.CreateBuffers(BackgroundVertices, BackgroundVertexIndices);
+	int Width = 600;
+
+	int Height = 600;
+
+	bool AllowExit = false;
 
 
-	std::vector<float> MeteorVertices = {
-		// Positions        // UVs
-	   -0.5f, -0.5f, 0.f,  0.f, 0.f,   // Bottom-left vertex
-		0.5f, -0.5f, 0.f,  1.f, 0.f,  // Bottom-right vertex
-	   -0.5f,  0.5f, 0.f,  0.f, 1.f, // Top-Left vertex
-		0.5f,  0.5f, 0.f,  1.f, 1.f // Top-Right vertex
-	};
+
+	float XSpeed = 0.05f;
+
+	float PlayerXTranslation = 0.f;
+
+	float PlayerXTranslationTreshold = 0.08f;
+
+
+	Init(MainWindow, MainGLContext, WindowXPos, WindowYPos, Width, Height);
+
+	
+	GLuint VertexShader = CreateShader("Vertex_Shader.glsl", GL_VERTEX_SHADER);
+
+	GLuint FragmentShader = CreateShader("Fragment_Shader.glsl", GL_FRAGMENT_SHADER);
+
+	GLuint Program = CreateProgram(FragmentShader, VertexShader);
+
+
+
+	RenderObject Player;
+
+	Player.SetProgram(Program);
+
+	Player.SetView();
+
+	Player.SetProjection(Width, Height);
+
+	Player.SetModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 0.f, glm::vec3(0.f, 0.f, -6.f));
+
+	Player.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
+
+	Player.CreateBuffers(MeteorVertices, RectangleVertexIndices);
+
+
+	// LoadTexture(); // delete
+
+	// CreateVBOAndVAO(); // delete
+
+	// CreateMVP(); // delete
+
+
+
+
+
+	RenderObject MainBackground = RenderObject();
+
+	MainBackground.SetProgram(Program);
+
+	MainBackground.SetModel(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 180.f, glm::vec3(0.f, 0.f, 0.f));
+
+	MainBackground.SetView();
+
+	MainBackground.SetProjection(Width, Height);
+
+	MainBackground.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg", 0.3f);
+
+	MainBackground.CreateBuffers(BackgroundVertices, RectangleVertexIndices);
+
+
+
 
 
 	const int NumberOfMeteors = 1;
@@ -969,7 +547,7 @@ int main()
 
 	float CurentMeteorScale = 1.f;
 
-	float CurrentMeteorTranslationX = 0.01f;
+	float CurrentMeteorTranslationX = 0.f;
 
 	float TranslationAdditiveVal = 0.01;
 
@@ -977,6 +555,11 @@ int main()
 
 	float RotationAdditiveVal = 1.f;
 
+	float CurrentTime = 0.f;
+
+	float LastTime = 0.f;
+
+	float DeltaTime = 0.f;
 
 	for (RenderObject* Meteor : Meteors)
 
@@ -992,13 +575,16 @@ int main()
 		Meteor->SetProgram(Program);
 
 
-		Meteor->SetModel(glm::vec3(CurentMeteorScale, CurentMeteorScale, CurentMeteorScale), glm::vec3(0.f, 0.f, 1.f), CurrentMeteorRotation, glm::vec3(CurrentMeteorTranslationX, 1.f, -7.f));
+		Meteor->SetModel(glm::vec3(CurentMeteorScale, CurentMeteorScale, CurentMeteorScale), glm::vec3(0.f, 0.f, 1.f), CurrentMeteorRotation, glm::vec3(CurrentMeteorTranslationX, 2.f, -7.f));
 
+		Meteor->SetView();
+
+		Meteor->SetProjection(Width, Height);
 		// Meteor->CreateModel(glm::vec3(1, 1, 1), glm::vec3(1, 3.f, -10.f));
 
 		Meteor->SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
 
-		Meteor->CreateBuffers(MeteorVertices, BackgroundVertexIndices);
+		Meteor->CreateBuffers(MeteorVertices, RectangleVertexIndices);
 
 	}
 
@@ -1009,15 +595,25 @@ int main()
 	{
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-		Input();
+		CurrentTime = SDL_GetTicks();
 
-		MoveCharacter();
+		DeltaTime = CurrentTime - LastTime;
 
-		PreDraw();
+		LastTime = SDL_GetTicks();
 
-		Draw();
+		Input(PlayerXTranslation, XSpeed, AllowExit, DeltaTime);
 
-		MainBackground.Draw();
+		MoveCharacter(PlayerXTranslation, XSpeed, PlayerXTranslationTreshold);
+
+		// PreDraw();
+
+		// Draw();
+		std::cout << PlayerXTranslation << std::endl;
+		Player.SetModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 0.f, glm::vec3(PlayerXTranslation, 0.f, -7.f));
+
+		Player.Draw(glm::vec3(0.1f, 1.f, 0.1f));
+
+		MainBackground.Draw(glm::vec3(1.f, 1.f, 1.f));
 
 		for (RenderObject* Meteor : Meteors)
 		{
@@ -1041,6 +637,7 @@ int main()
 
 		i++;
 
+		
 
 		// matrix = glm::translate(glm::mat4(1), glm::vec3(x, y, z)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
 
@@ -1056,7 +653,7 @@ int main()
 
 	}
 
-	CleanUp();
+	CleanUp(FragmentShader, VertexShader, MainWindow);
 
 	return 0;
 }
