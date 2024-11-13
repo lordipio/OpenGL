@@ -265,7 +265,7 @@ private:
 
 
 
-void Init(SDL_Window*& MainWindow, SDL_GLContext& MainGLContext,float WindowXPos, float WindowYPos, float Width, float Height)
+void Init(SDL_Window*& MainWindow, SDL_GLContext& MainGLContext, float WindowXPos, float WindowYPos, float Width, float Height)
 {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
@@ -316,7 +316,7 @@ void Init(SDL_Window*& MainWindow, SDL_GLContext& MainGLContext,float WindowXPos
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glViewport(GLint(0), GLint(0), GLint(Width), GLint(Height));
-	
+
 	glClearColor(GLfloat(0.1f), GLfloat(0.1f), GLfloat(0.1f), GLfloat(1.f));
 }
 
@@ -335,33 +335,7 @@ std::string ReadShaderFile(std::string filepath)
 	return shaderSource;
 }
 
-void Input(float& PlayerXTranslation, float XSpeed, bool& AllowExit, float DeltaTime)
-{
-	SDL_Event Event;
 
-	while (SDL_PollEvent(&Event))
-	{
-		const Uint8* InputEventState = SDL_GetKeyboardState(nullptr);
-		if (InputEventState[SDL_SCANCODE_LEFT])
-		{
-			std::cout << "Left Button Is Pressed!" << std::endl;
-			PlayerXTranslation -= XSpeed * DeltaTime;
-		}
-
-		if (Event.type == SDL_QUIT)
-		{
-			std::cout << "Quit Button Is Pressed!" << std::endl;
-
-			AllowExit = true;
-		}
-
-		if (InputEventState[SDL_SCANCODE_RIGHT])
-		{
-			std::cout << "Right Button Is Pressed!" << std::endl;
-			PlayerXTranslation += XSpeed * DeltaTime;
-		}
-	}
-}
 
 void CleanUp(GLuint FragmentShader, GLuint VertexShader, SDL_Window*& MainWindow) // correct it
 {
@@ -403,23 +377,70 @@ GLuint CreateShader(std::string ShaderPath, GLenum ShaderType)
 
 }
 
-
-void MoveCharacter(float& PlayerXTranslation, float XSpeed, float PlayerXTranslationTreshold)
+void Input(float& PlayerXMovementStep, unsigned int& CurrentStep, bool& AllowExit, float DeltaTime)
 {
-	//if (PlayerXTranslation > 0)
-	//	PlayerXTranslation += XSpeed;
+	SDL_Event Event;
 
-	//if (PlayerXTranslation < 0)
-	//	PlayerXTranslation -= XSpeed;
+	while (SDL_PollEvent(&Event))
+	{
+		const Uint8* InputEventState = SDL_GetKeyboardState(nullptr);
+		if (InputEventState[SDL_SCANCODE_LEFT])
+		{
+			std::cout << "Left Button Is Pressed!" << std::endl;
 
-	// Model = glm::translate(Model, glm::vec3(PlayerXTranslation, 0.f, 0.f));
 
-	//if (PlayerXTranslation >= PlayerXTranslationTreshold || PlayerXTranslation <= -PlayerXTranslationTreshold)
-	//	PlayerXTranslation = 0.f;
+			PlayerXMovementStep = -abs(PlayerXMovementStep);
+			CurrentStep = 0;
+
+			//PlayerXTranslation -= XSpeed * DeltaTime;
+		}
+
+		if (Event.type == SDL_QUIT)
+		{
+			std::cout << "Quit Button Is Pressed!" << std::endl;
+
+			AllowExit = true;
+		}
+
+		if (InputEventState[SDL_SCANCODE_RIGHT])
+		{
+			std::cout << "Right Button Is Pressed!" << std::endl;
+			PlayerXMovementStep = abs(PlayerXMovementStep);
+
+			CurrentStep = 0;
+
+			//PlayerXTranslation += XSpeed * DeltaTime;
+
+		}
+	}
+}
+
+void MoveCharacterRight(float& PlayerXTranslation, float PlayerXMovementStep, unsigned int& CurrentStep, unsigned int StepsCount)
+{
+	if (CurrentStep <= StepsCount)
+	{
+		PlayerXTranslation += PlayerXMovementStep;
+
+		std::cout << CurrentStep << std::endl;
+
+		CurrentStep++;
+	}
+
+	// else
+		// CurrentStep = 0;
+}
+
+void MoveCharacterUp(float& PlayerXTranslation, float PlayerXMovementStep, unsigned int CurrentStep, unsigned int StepsCount)
+{
+
 
 }
 
-
+enum MovementState
+{
+	PMS_Moving = 0,
+	PMS_Static = 1
+};
 
 int main()
 {
@@ -458,23 +479,26 @@ int main()
 	bool AllowExit = false;
 
 
+	const unsigned int StepsCount = 10;
 
-	float XSpeed = 0.05f;
+	unsigned int CurrentStep = 0;
+
+	const float XSpeed = 1.f;
+
+	float PlayerXTranslationStep = XSpeed / StepsCount;
 
 	float PlayerXTranslation = 0.f;
 
-	float PlayerXTranslationTreshold = 0.08f;
 
 
 	Init(MainWindow, MainGLContext, WindowXPos, WindowYPos, Width, Height);
 
-	
+
 	GLuint VertexShader = CreateShader("Vertex_Shader.glsl", GL_VERTEX_SHADER);
 
 	GLuint FragmentShader = CreateShader("Fragment_Shader.glsl", GL_FRAGMENT_SHADER);
 
 	GLuint Program = CreateProgram(FragmentShader, VertexShader);
-
 
 
 	RenderObject Player;
@@ -601,14 +625,14 @@ int main()
 
 		LastTime = SDL_GetTicks();
 
-		Input(PlayerXTranslation, XSpeed, AllowExit, DeltaTime);
+		Input(PlayerXTranslationStep, CurrentStep, AllowExit, DeltaTime);
 
-		MoveCharacter(PlayerXTranslation, XSpeed, PlayerXTranslationTreshold);
+		MoveCharacterRight(PlayerXTranslation, PlayerXTranslationStep, CurrentStep, StepsCount);
 
 		// PreDraw();
 
 		// Draw();
-		std::cout << PlayerXTranslation << std::endl;
+		//std::cout << PlayerXTranslation << std::endl;
 		Player.SetModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 0.f, glm::vec3(PlayerXTranslation, 0.f, -7.f));
 
 		Player.Draw(glm::vec3(0.1f, 1.f, 0.1f));
@@ -624,7 +648,7 @@ int main()
 			//Meteor->UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
 
 			//if (i < testTreshold)
-			
+
 			CurrentMeteorTranslationX += TranslationAdditiveVal;
 
 			CurrentMeteorRotation += RotationAdditiveVal;
@@ -637,7 +661,7 @@ int main()
 
 		i++;
 
-		
+
 
 		// matrix = glm::translate(glm::mat4(1), glm::vec3(x, y, z)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
 
