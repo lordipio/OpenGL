@@ -8,6 +8,8 @@ uniform sampler2D MeteorTexture;
 void main()
 {
 	vec4 TextureColor = texture(MeteorTexture, UV);
+	if(TextureColor.a < 0.1)
+        discard;
 	color = TextureColor * vec4(u_Color, 1.f);
 }
 
