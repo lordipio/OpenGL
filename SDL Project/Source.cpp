@@ -55,6 +55,8 @@ static bool GLLogError(const char* function, const char* file, int line)
 
 struct Transformation
 {
+	float CircleCollisionRadius;
+
 	glm::vec3 Position;
 
 	glm::vec3 RotationAmount;
@@ -93,7 +95,7 @@ public:
 		glm::vec3 Eye = glm::vec3(0.f, 0.f, 3.f);
 		glm::vec3 Center = glm::vec3(0.f, 0.f, 0.f);
 		glm::vec3 UpVector = glm::vec3(0.f, 1.f, 0.f);
-
+		
 		this->View = glm::lookAt(Eye, Center, UpVector);
 	}
 
@@ -102,13 +104,18 @@ public:
 		this->Projection = glm::perspective((float)glm::radians(45.f), float(Width / Height), 0.1f, 100.f);
 	}
 
-	void SetModel(glm::vec3 Scale, glm::vec3 RotationAxis, float RotationValue, glm::vec3 Translate)
+	void SetModel(glm::vec3 Scale, glm::vec3 RotationValue, glm::vec3 Translate)
 	{
 		ObjectTransformation.TransformationMatrix = glm::mat4(1.f);
 
 		ObjectTransformation.TransformationMatrix = glm::translate(ObjectTransformation.TransformationMatrix, Translate);
 
-		ObjectTransformation.TransformationMatrix = glm::rotate(ObjectTransformation.TransformationMatrix, glm::radians(RotationValue), RotationAxis);
+		ObjectTransformation.TransformationMatrix = glm::rotate(ObjectTransformation.TransformationMatrix, glm::radians(RotationValue.r), glm::vec3(1, 0, 0));
+
+		ObjectTransformation.TransformationMatrix = glm::rotate(ObjectTransformation.TransformationMatrix, glm::radians(RotationValue.g), glm::vec3(0, 1, 0));
+
+		ObjectTransformation.TransformationMatrix = glm::rotate(ObjectTransformation.TransformationMatrix, glm::radians(RotationValue.b), glm::vec3(0, 0, 1));
+
 
 		ObjectTransformation.TransformationMatrix = glm::scale(ObjectTransformation.TransformationMatrix, Scale);
 	}
@@ -249,6 +256,15 @@ public:
 
 	}
 
+	bool CollisionDetection(RenderObject* OtherObject)
+	{
+		DistanceBetweenCircles = std::pow((OtherObject->ObjectTransformation.Position.r - this->ObjectTransformation.Position.r), 2) + std::pow((OtherObject->ObjectTransformation.Position.g - this->ObjectTransformation.Position.g), 2);
+
+		CollisionClosestState = std::pow((OtherObject->ObjectTransformation.CircleCollisionRadius + OtherObject->ObjectTransformation.CircleCollisionRadius), 2);
+
+		return DistanceBetweenCircles < CollisionClosestState;
+	}
+
 	__forceinline GLuint GetTextureID() { return TextureID; }
 
 	__forceinline GLuint GetVAO() { return VAO; }
@@ -260,8 +276,12 @@ public:
 	Transformation ObjectTransformation;
 
 	glm::vec3 Color = glm::vec3(1.f, 1.f, 1.f);
+
 private:
 
+	float DistanceBetweenCircles;
+	float CollisionClosestState;
+	
 	GLuint VAO;
 	GLuint VBO;
 	GLuint IBO;
@@ -303,6 +323,11 @@ public:
 		{
 			this->ObjectTransformation.Position.r += PlayerXMovementStep;
 
+			if (PlayerXMovementStep < 0)
+				ObjectTransformation.RotationAmount.g = 180.f;
+			
+			if (PlayerXMovementStep > 0)
+				ObjectTransformation.RotationAmount.g = 0.f;
 			// std::cout << PlayerXTranslation << std::endl;
 
 			this->CurrentStep++;
@@ -533,9 +558,12 @@ int main()
 
 	Player.ObjectTransformation.Position = glm::vec3(0.f, -3.f, -6.f);
 
-	Player.ObjectTransformation.RotationAmount = glm::vec3(0.f, 0.f, 0.f);
+	Player.ObjectTransformation.RotationAmount = glm::vec3(0.f, 0.f, 180.f);
 	
-	Player.ObjectTransformation.Scale = glm::vec3(1.f, 1.f, 1.f);
+	Player.ObjectTransformation.Scale = glm::vec3(1.f, 0.7f, 1.f);
+
+	Player.ObjectTransformation.CircleCollisionRadius = 0.3f;
+
 
 
 	Player.SetProgram(Program);
@@ -544,9 +572,9 @@ int main()
 
 	Player.SetProjection(Width, Height);
 
-	Player.SetModel(Player.ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), 0.f, Player.ObjectTransformation.Position);
+	Player.SetModel(Player.ObjectTransformation.Scale, Player.ObjectTransformation.RotationAmount, Player.ObjectTransformation.Position);
 
-	Player.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
+	Player.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/UFO.png", 1.f);
 
 	Player.CreateBuffers(MeteorVertices, RectangleVertexIndices);
 
@@ -556,7 +584,7 @@ int main()
 
 	MainBackground.SetProgram(Program);
 
-	MainBackground.SetModel(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 180.f, glm::vec3(0.f, 0.f, 0.f));
+	MainBackground.SetModel(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, 0.f, 0.f));
 
 	MainBackground.SetView();
 
@@ -632,12 +660,15 @@ int main()
 
 		Meteor->ObjectTransformation.RotationAmount = glm::vec3(0.f);
 
+		Meteor->ObjectTransformation.CircleCollisionRadius = 0.25f * ScaleRand;
+
+
 		
 		glm::vec3 RandomColor = glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f));
 		Meteor->Color = (RandomColor);
 
 
-		Meteor->SetModel(Meteor->ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), 0.f, Meteor->ObjectTransformation.Position);
+		Meteor->SetModel(Meteor->ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 0.f), Meteor->ObjectTransformation.Position);
 
 		Meteor->SetView();
 
@@ -676,9 +707,9 @@ int main()
 
 		Player.MoveCharacterRight(Player.ObjectTransformation.Position.r);
 
-		Player.SetModel(Player.ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), 0.f, Player.ObjectTransformation.Position);
+		Player.SetModel(Player.ObjectTransformation.Scale, Player.ObjectTransformation.RotationAmount, Player.ObjectTransformation.Position);
 
-		Player.Draw(glm::vec3(0.1f, 1.f, 0.1f));
+		Player.Draw(glm::vec3(1.f, 1.f, 1.f));
 
 
 		MainBackground.Draw(glm::vec3(1.f, 1.f, 1.f));
@@ -706,11 +737,14 @@ int main()
 
 			SpawnedEnemy->ObjectTransformation.RotationAmount.b += SpawnedEnemy->ZRotationSpeed;
 
-			SpawnedEnemy->SetModel(SpawnedEnemy->ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), SpawnedEnemy->ObjectTransformation.RotationAmount.b, SpawnedEnemy->ObjectTransformation.Position);
+			SpawnedEnemy->SetModel(SpawnedEnemy->ObjectTransformation.Scale, SpawnedEnemy->ObjectTransformation.RotationAmount, SpawnedEnemy->ObjectTransformation.Position);
 
 			SpawnedEnemy->Draw(SpawnedEnemy->Color);
 
-			if (SpawnedEnemy->ObjectTransformation.Position.g <= -5.f)
+			if (SpawnedEnemy->CollisionDetection(&Player))
+				std::cout << "COLLIDED!";
+
+			if (SpawnedEnemy->ObjectTransformation.Position.g <= -5.f) // out of the screen
 			{
 				SpawnedEnemy->ObjectTransformation.Position.g = 4.5;
 				UnspawnedEnemies.push_back(SpawnedEnemy);
