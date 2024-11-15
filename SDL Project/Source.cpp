@@ -1,6 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <SDL.h>
+#include <chrono>
+#include <thread>
+#include <functional>
 #include <GLAD/glad.h>
 #include <vector>
 #include "GLM/glm/vec4.hpp"
@@ -52,13 +55,19 @@ static bool GLLogError(const char* function, const char* file, int line)
 
 struct Transformation
 {
-	glm::mat4 Translation;
+	glm::vec3 Position;
 
-	glm::mat4 Rotation;
+	glm::vec3 RotationAmount;
 
-	glm::mat4 Scale;
+	glm::vec3 Scale;
 
-	glm::mat4 Transformation;
+	glm::mat4 TranslationMatrix;
+
+	glm::mat4 RotationMatrix;
+
+	glm::mat4 ScaleMatrix;
+
+	glm::mat4 TransformationMatrix;
 };
 
 
@@ -95,13 +104,13 @@ public:
 
 	void SetModel(glm::vec3 Scale, glm::vec3 RotationAxis, float RotationValue, glm::vec3 Translate)
 	{
-		transformation.Transformation = glm::mat4(1.f);
+		ObjectTransformation.TransformationMatrix = glm::mat4(1.f);
 
-		transformation.Transformation = glm::translate(transformation.Transformation, Translate);
+		ObjectTransformation.TransformationMatrix = glm::translate(ObjectTransformation.TransformationMatrix, Translate);
 
-		transformation.Transformation = glm::rotate(transformation.Transformation, glm::radians(RotationValue), RotationAxis);
+		ObjectTransformation.TransformationMatrix = glm::rotate(ObjectTransformation.TransformationMatrix, glm::radians(RotationValue), RotationAxis);
 
-		transformation.Transformation = glm::scale(transformation.Transformation, Scale);
+		ObjectTransformation.TransformationMatrix = glm::scale(ObjectTransformation.TransformationMatrix, Scale);
 	}
 
 
@@ -192,7 +201,7 @@ private:
 		GLuint ModelLocation = glGetUniformLocation(this->Program, "u_Model");
 
 		if (ModelLocation != -1)
-			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(transformation.Transformation));
+			glUniformMatrix4fv(ModelLocation, 1, GL_FALSE, glm::value_ptr(ObjectTransformation.TransformationMatrix));
 
 		else
 			std::cout << "Can't find Model Location!";
@@ -248,6 +257,9 @@ public:
 
 	__forceinline GLuint GetIBO() { return IBO; }
 
+	Transformation ObjectTransformation;
+
+	glm::vec3 Color = glm::vec3(1.f, 1.f, 1.f);
 private:
 
 	GLuint VAO;
@@ -256,13 +268,58 @@ private:
 	GLuint TextureID;
 	GLuint Program;
 
-	Transformation transformation;
 
 	glm::mat4 Projection;
 
 	glm::mat4 View;
 };
 
+class EnemyObject : public RenderObject
+{
+public:
+	float YMovementSpeed;
+	float ZRotationSpeed;
+};
+
+class PlayerObject : public RenderObject
+{
+public:
+
+	PlayerObject()
+	{
+		this->PlayerXMovementStep = this->XSpeed / this->StepsCount;
+	}
+
+	void SetupMovement()
+	{
+
+	}
+
+	void MoveCharacterRight(float& PlayerXTranslation)
+	{
+		this->ObjectTransformation.Position.r = PlayerXTranslation;
+
+		if (CurrentStep <= StepsCount)
+		{
+			this->ObjectTransformation.Position.r += PlayerXMovementStep;
+
+			// std::cout << PlayerXTranslation << std::endl;
+
+			this->CurrentStep++;
+		}
+	}
+
+	// float PlayerXTranslation = 0.f;
+	
+	float PlayerXMovementStep = 0.f;
+	
+	unsigned int CurrentStep = 10; // Player won't move at first
+	
+	float XSpeed = 1.f;
+
+	unsigned int StepsCount = 10;
+
+};
 
 
 void Init(SDL_Window*& MainWindow, SDL_GLContext& MainGLContext, float WindowXPos, float WindowYPos, float Width, float Height)
@@ -391,7 +448,7 @@ void Input(float& PlayerXMovementStep, unsigned int& CurrentStep, bool& AllowExi
 
 			PlayerXMovementStep = -abs(PlayerXMovementStep);
 			CurrentStep = 0;
-
+			// std::cout << PlayerXMovementStep << std::endl;
 			//PlayerXTranslation -= XSpeed * DeltaTime;
 		}
 
@@ -406,41 +463,22 @@ void Input(float& PlayerXMovementStep, unsigned int& CurrentStep, bool& AllowExi
 		{
 			std::cout << "Right Button Is Pressed!" << std::endl;
 			PlayerXMovementStep = abs(PlayerXMovementStep);
-
 			CurrentStep = 0;
-
-			//PlayerXTranslation += XSpeed * DeltaTime;
 
 		}
 	}
 }
 
-void MoveCharacterRight(float& PlayerXTranslation, float PlayerXMovementStep, unsigned int& CurrentStep, unsigned int StepsCount)
+float RandBetween(float Min, float Max)
 {
-	if (CurrentStep <= StepsCount)
-	{
-		PlayerXTranslation += PlayerXMovementStep;
-
-		std::cout << CurrentStep << std::endl;
-
-		CurrentStep++;
-	}
-
-	// else
-		// CurrentStep = 0;
+	double scale = static_cast<double>(std::rand()) / RAND_MAX;
+	return Min + scale * (Max - Min);
 }
 
-void MoveCharacterUp(float& PlayerXTranslation, float PlayerXMovementStep, unsigned int CurrentStep, unsigned int StepsCount)
+float RandBetween(int Min, int Max)
 {
-
-
+	return float(Min + std::rand() % (Max - Min + 1));
 }
-
-enum MovementState
-{
-	PMS_Moving = 0,
-	PMS_Static = 1
-};
 
 int main()
 {
@@ -479,17 +517,6 @@ int main()
 	bool AllowExit = false;
 
 
-	const unsigned int StepsCount = 10;
-
-	unsigned int CurrentStep = 0;
-
-	const float XSpeed = 1.f;
-
-	float PlayerXTranslationStep = XSpeed / StepsCount;
-
-	float PlayerXTranslation = 0.f;
-
-
 
 	Init(MainWindow, MainGLContext, WindowXPos, WindowYPos, Width, Height);
 
@@ -501,7 +528,15 @@ int main()
 	GLuint Program = CreateProgram(FragmentShader, VertexShader);
 
 
-	RenderObject Player;
+
+	PlayerObject Player;
+
+	Player.ObjectTransformation.Position = glm::vec3(0.f, -3.f, -6.f);
+
+	Player.ObjectTransformation.RotationAmount = glm::vec3(0.f, 0.f, 0.f);
+	
+	Player.ObjectTransformation.Scale = glm::vec3(1.f, 1.f, 1.f);
+
 
 	Player.SetProgram(Program);
 
@@ -509,20 +544,11 @@ int main()
 
 	Player.SetProjection(Width, Height);
 
-	Player.SetModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 0.f, glm::vec3(0.f, 0.f, -6.f));
+	Player.SetModel(Player.ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), 0.f, Player.ObjectTransformation.Position);
 
 	Player.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
 
 	Player.CreateBuffers(MeteorVertices, RectangleVertexIndices);
-
-
-	// LoadTexture(); // delete
-
-	// CreateVBOAndVAO(); // delete
-
-	// CreateMVP(); // delete
-
-
 
 
 
@@ -542,28 +568,22 @@ int main()
 
 
 
+	const int NumberOfMeteors = 50;
 
+	EnemyObject MeteorsObj[NumberOfMeteors];
 
-	const int NumberOfMeteors = 1;
+	EnemyObject* Meteors[NumberOfMeteors];
 
-	// glm::mat4 MeteorsTransformation[NumberOfMeteors];
-
-	RenderObject MeteorsObj[NumberOfMeteors];
-
-	RenderObject* Meteors[NumberOfMeteors];
-
-	srand(time(nullptr));
 
 	for (int i = 0; i < NumberOfMeteors; i++)
 	{
 		Meteors[i] = &MeteorsObj[i];
 	}
 
-
-
+	
 	float ScaleRand;
 
-	float TranslateRandX;
+	float RandomXPosition;
 
 	float TranslateRandY;
 
@@ -583,28 +603,45 @@ int main()
 
 	float LastTime = 0.f;
 
-	float DeltaTime = 0.f;
+	float DeltaTime = RandBetween(3, 7);
 
-	for (RenderObject* Meteor : Meteors)
-
+	int RightSide = 1.f;
+	
+	for (EnemyObject* Meteor : Meteors)
 	{
-		ScaleRand = float(rand() % 100 + 1) / 100.f;
+		ScaleRand = RandBetween(0.4, 1.f);
 
-		TranslateRandX = float(rand() % 100 + 1) / 10.f;
+		Meteor->ZRotationSpeed = RandBetween(0.3f, 1.f);
 
-		TranslateRandY = float(rand() % 100 + 1) / 10.f;
+		Meteor->YMovementSpeed = RandBetween(0.013f, 0.022f);
 
-		RotationRand;
+		if (RandBetween(1, 2) == 1)
+			RightSide = 1.f;
+		else
+			RightSide = -1.f;
+
+
+		RandomXPosition = RightSide * (float(rand() % 100 + 1) / 25.f);
+
 
 		Meteor->SetProgram(Program);
 
+		Meteor->ObjectTransformation.Position = glm::vec3(RandomXPosition, 4.5f, -7.f);
 
-		Meteor->SetModel(glm::vec3(CurentMeteorScale, CurentMeteorScale, CurentMeteorScale), glm::vec3(0.f, 0.f, 1.f), CurrentMeteorRotation, glm::vec3(CurrentMeteorTranslationX, 2.f, -7.f));
+		Meteor->ObjectTransformation.Scale = glm::vec3(ScaleRand, ScaleRand, ScaleRand);
+
+		Meteor->ObjectTransformation.RotationAmount = glm::vec3(0.f);
+
+		
+		glm::vec3 RandomColor = glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f));
+		Meteor->Color = (RandomColor);
+
+
+		Meteor->SetModel(Meteor->ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), 0.f, Meteor->ObjectTransformation.Position);
 
 		Meteor->SetView();
 
 		Meteor->SetProjection(Width, Height);
-		// Meteor->CreateModel(glm::vec3(1, 1, 1), glm::vec3(1, 3.f, -10.f));
 
 		Meteor->SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
 
@@ -615,63 +652,74 @@ int main()
 	int testTreshold = 1000.f;
 	int i = 0;
 
+	std::vector<EnemyObject*> UnspawnedEnemies;
+
+	std::vector<EnemyObject*> SpawnedEnemies;
+
+	for (int i = 0; i < NumberOfMeteors; i++)
+	{
+		UnspawnedEnemies.push_back(Meteors[i]);
+	}
+
+
+
+
+
 	while (!AllowExit)
 	{
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-		CurrentTime = SDL_GetTicks();
+		CurrentTime = SDL_GetTicks() / 1000;
 
-		DeltaTime = CurrentTime - LastTime;
 
-		LastTime = SDL_GetTicks();
+		Input(Player.PlayerXMovementStep, Player.CurrentStep, AllowExit, DeltaTime);
 
-		Input(PlayerXTranslationStep, CurrentStep, AllowExit, DeltaTime);
+		Player.MoveCharacterRight(Player.ObjectTransformation.Position.r);
 
-		MoveCharacterRight(PlayerXTranslation, PlayerXTranslationStep, CurrentStep, StepsCount);
-
-		// PreDraw();
-
-		// Draw();
-		//std::cout << PlayerXTranslation << std::endl;
-		Player.SetModel(glm::vec3(1.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 1.f), 0.f, glm::vec3(PlayerXTranslation, 0.f, -7.f));
+		Player.SetModel(Player.ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), 0.f, Player.ObjectTransformation.Position);
 
 		Player.Draw(glm::vec3(0.1f, 1.f, 0.1f));
 
+
 		MainBackground.Draw(glm::vec3(1.f, 1.f, 1.f));
 
-		for (RenderObject* Meteor : Meteors)
+
+
+		if (CurrentTime - LastTime > DeltaTime)
 		{
-			// Meteor.UpdateScale(glm::vec3(1.f, 1.f, 1.f));
+			if (UnspawnedEnemies.size() >= 1)
+			{
 
-			// Meteor.UpdateRotation(glm::vec3(0.f, 0.f, 1.f), 15.f);
+				DeltaTime = RandBetween(0.01f, 0.07f);
 
-			//Meteor->UpdateTranslate(glm::vec3(-0.0, -0.01f, 0.f));
-
-			//if (i < testTreshold)
-
-			CurrentMeteorTranslationX += TranslationAdditiveVal;
-
-			CurrentMeteorRotation += RotationAdditiveVal;
-
-			Meteor->SetModel(glm::vec3(CurentMeteorScale, CurentMeteorScale, CurentMeteorScale), glm::vec3(0.f, 0.f, 1.f), CurrentMeteorRotation, glm::vec3(CurrentMeteorTranslationX, 1.0, -7.0));
-
-			Meteor->Draw(glm::vec3(1.f, 1.f, 1.f));
-
+				LastTime = CurrentTime;
+				const int SelectedMeteor = RandBetween(0, UnspawnedEnemies.size() - 1);
+				SpawnedEnemies.push_back(UnspawnedEnemies[SelectedMeteor]);
+				UnspawnedEnemies.erase(UnspawnedEnemies.begin() + SelectedMeteor);
+			}
 		}
 
-		i++;
 
+		for (EnemyObject* SpawnedEnemy : SpawnedEnemies)
+		{
+			SpawnedEnemy->ObjectTransformation.Position.g -= SpawnedEnemy->YMovementSpeed;
 
+			SpawnedEnemy->ObjectTransformation.RotationAmount.b += SpawnedEnemy->ZRotationSpeed;
 
-		// matrix = glm::translate(glm::mat4(1), glm::vec3(x, y, z)) * glm::rotate(glm::mat4(1), glm::radians(0.f), glm::vec3(0.f, 1.f, 0.f));
+			SpawnedEnemy->SetModel(SpawnedEnemy->ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 1.f), SpawnedEnemy->ObjectTransformation.RotationAmount.b, SpawnedEnemy->ObjectTransformation.Position);
 
-		// Meteor1.Model = glm::mat4(1.f);
+			SpawnedEnemy->Draw(SpawnedEnemy->Color);
 
-		//Meteor1.RotationMat = glm::rotate(glm::mat4(1.f), 0.f, glm::vec3(1.f, 0.f, 0.f));
-
-		//Meteor1.ScaleMat = glm::scale(glm::mat4(1), glm::vec3(1.f, 1.f, 1.f));
-
-		//Meteor1.TranslateMat = glm::translate(glm::mat4(1), glm::vec3(0.f, 0.f, 0.f));
+			if (SpawnedEnemy->ObjectTransformation.Position.g <= -5.f)
+			{
+				SpawnedEnemy->ObjectTransformation.Position.g = 4.5;
+				UnspawnedEnemies.push_back(SpawnedEnemy);
+				auto i = std::find(SpawnedEnemies.begin(), SpawnedEnemies.end(), SpawnedEnemy);
+				std::cout << i - SpawnedEnemies.begin() << std::endl;
+				SpawnedEnemies.erase(std::find(SpawnedEnemies.begin(), SpawnedEnemies.end(), SpawnedEnemy));
+			}
+			
+		}
 
 		SDL_GL_SwapWindow(MainWindow);
 
