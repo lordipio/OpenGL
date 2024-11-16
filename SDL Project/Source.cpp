@@ -51,11 +51,15 @@ static bool GLLogError(const char* function, const char* file, int line)
 
 #pragma region Definitions
 
-
+enum AnimationPlayingState
+{
+	APS_Playing = 0,
+	APS_Stopped = 1
+};
 
 struct Transformation
 {
-	float CircleCollisionRadius;
+	float CircleCollisionRadius = 0.f;
 
 	glm::vec3 Position;
 
@@ -85,6 +89,49 @@ public:
 
 	}
 
+	void SetCollisionRadius(float Radius)
+	{
+		ObjectTransformation.CircleCollisionRadius = Radius;
+		StoredCollisionRadius = Radius;
+	}
+
+	void ActivateCollision()
+	{
+		std::cout << "Circle Collision Radius: " << this->ObjectTransformation.CircleCollisionRadius << "      Stored Collision Radius " << StoredCollisionRadius <<  std::endl;
+
+		ObjectTransformation.CircleCollisionRadius = StoredCollisionRadius;
+		
+	}
+
+	void DisableCollision()
+	{
+		ObjectTransformation.CircleCollisionRadius = 0.f;
+	}
+
+	void SetupObject(glm::vec3 Scale, glm::vec3 RotationAmount, glm::vec3 Position, std::string TexturePath, float TextureAlphaReduction, std::vector<float> Vertices, std::vector<int> VertexIndices, GLuint Program, float Width, float Height, glm::vec3 Color = glm::vec3(1.f, 1.f, 1.f))
+	{
+		this->ObjectTransformation.Position = Position;
+
+		this->ObjectTransformation.RotationAmount = RotationAmount;
+
+		this->ObjectTransformation.Scale = Scale;
+
+
+
+		this->SetProgram(Program);
+
+		this->SetView();
+
+		this->SetProjection(Width, Height);
+
+		this->SetModel(Scale, RotationAmount, Position);
+
+		this->SetTexture(TexturePath, TextureAlphaReduction);
+
+		this->CreateBuffers(Vertices, VertexIndices);
+
+		this->Color = Color;
+	}
 	void SetProgram(GLuint Program)
 	{
 		this->Program = Program;
@@ -143,10 +190,8 @@ public:
 			std::cout << "Texture Data was not found!";
 			return 0;
 		}
-		// make it transparent
-		if (nrChannels == 4)  // If the texture has an alpha channel (RGBA)
+		if (nrChannels == 4)
 		{
-			// Modify alpha (reduce transparency)
 			for (int i = 0; i < width * height * 4; i += 4) {
 				data[i + 3] = data[i + 3] * AlphaReductionScale; // reduce alpha
 			}
@@ -195,7 +240,7 @@ private:
 
 		glBindTexture(GL_TEXTURE_2D, TextureID);
 
-		GLuint TextureLocation = glGetUniformLocation(this->Program, "MeteorTexture");
+		GLuint TextureLocation = glGetUniformLocation(this->Program, "InTexture");
 
 		if (TextureLocation == -1)
 			std::cout << "Texture Location was not found!";
@@ -248,7 +293,7 @@ public:
 
 		glEnableVertexAttribArray(2);
 
-		glActiveTexture(GL_TEXTURE1);
+		glActiveTexture(GL_TEXTURE0);
 
 		glBindTexture(GL_TEXTURE_2D, TextureID);
 
@@ -258,11 +303,15 @@ public:
 
 	bool CollisionDetection(RenderObject* OtherObject)
 	{
+		if (this->ObjectTransformation.CircleCollisionRadius == 0 || OtherObject->ObjectTransformation.CircleCollisionRadius == 0)
+			return false;
+
 		DistanceBetweenCircles = std::pow((OtherObject->ObjectTransformation.Position.r - this->ObjectTransformation.Position.r), 2) + std::pow((OtherObject->ObjectTransformation.Position.g - this->ObjectTransformation.Position.g), 2);
 
 		CollisionClosestState = std::pow((OtherObject->ObjectTransformation.CircleCollisionRadius + OtherObject->ObjectTransformation.CircleCollisionRadius), 2);
 
-		return DistanceBetweenCircles < CollisionClosestState;
+		return DistanceBetweenCircles <= CollisionClosestState + 0.01f && DistanceBetweenCircles + 0.01f >= CollisionClosestState;
+
 	}
 
 	__forceinline GLuint GetTextureID() { return TextureID; }
@@ -282,6 +331,14 @@ private:
 	float DistanceBetweenCircles;
 	float CollisionClosestState;
 	
+	bool LastFrameCollided = false;
+	
+	bool CurrentFrameCollided = false;
+
+	bool ObjectIsColliding = false; 
+
+	float StoredCollisionRadius;
+
 	GLuint VAO;
 	GLuint VBO;
 	GLuint IBO;
@@ -297,13 +354,121 @@ private:
 class EnemyObject : public RenderObject
 {
 public:
+
+	void SetupObject(glm::vec3 Scale, glm::vec3 RotationAmount, glm::vec3 Position, std::string TexturePath, float TextureAlphaReduction, std::vector<float> Vertices, std::vector<int> VertexIndices, GLuint Program, float Width, float Height, glm::vec3 Color = glm::vec3(1.f, 1.f, 1.f))
+	{
+		RenderObject::SetupObject(Scale, RotationAmount, Position, TexturePath, TextureAlphaReduction, Vertices, VertexIndices, Program, Width, Height, Color);
+	}
+
+
+	void SetCollisionRadius(float Radius)
+	{
+		RenderObject::SetCollisionRadius(Radius);
+	}
+
+	void ActivateCollision()
+	{
+		RenderObject::ActivateCollision();
+	}
+
+	void DisableCollision()
+	{
+		RenderObject::DisableCollision();
+	}
+
 	float YMovementSpeed;
 	float ZRotationSpeed;
+};
+
+class Animation : public RenderObject
+{
+public:
+	void SetupObject(glm::vec3 Scale, glm::vec3 RotationAmount, glm::vec3 Position, std::string TexturePath, float TextureAlphaReduction, std::vector<float> Vertices, std::vector<int> VertexIndices, GLuint Program, float Width, float Height, const int NumberOfAnimationFrame, float AnimationFrameTimeInterval, glm::vec3 Color = glm::vec3(1.f, 1.f, 1.f))
+	{
+		RenderObject::SetupObject(Scale, RotationAmount, Position, TexturePath, TextureAlphaReduction, Vertices, VertexIndices, Program, Width, Height, Color);
+		this->NumberOfAnimationFrame = NumberOfAnimationFrame;
+		this->AnimationFrameTimeInterval = AnimationFrameTimeInterval;
+	}
+
+	void PlayAnimation(float CurrentTime, std::string FilePath) // FilePath should not contain frame number and .png
+	{
+
+		std::cout << "AnimationFrame " << AnimationFrame << std::endl;
+		if (AnimationFrame > NumberOfAnimationFrame)
+		{
+			AnimationState = AnimationPlayingState::APS_Stopped;
+			AnimationFrame = 1;
+		}
+
+		else
+		{
+			AnimationState = AnimationPlayingState::APS_Playing;
+
+			if (CurrentTime - AnimationLastTime >= AnimationFrameTimeInterval)
+			{
+				SetTexture(FilePath + std::to_string(AnimationFrame) + ".png", 1.f);
+				AnimationFrame++;
+				AnimationLastTime = CurrentTime;
+			}
+		}
+
+	}
+
+	AnimationPlayingState AnimationState = AnimationPlayingState::APS_Stopped;
+
+private:
+	int AnimationFrame = 1;
+	int NumberOfAnimationFrame = 10;
+	float AnimationFrameTimeInterval = 0.1f;
+	float AnimationLastTime = 0.f;
 };
 
 class PlayerObject : public RenderObject
 {
 public:
+
+	bool IsAlive()
+	{
+		if (CurrentLife <= 0)
+			return false;
+		else
+			return true;
+	}
+
+	void ReduceLife()
+	{
+		this->CurrentLife--;
+		Color = glm::vec3(CurrentLife/float(Life), 0.1f, 0.1f);
+	}
+
+	__forceinline int GetLife()
+	{
+		return this->CurrentLife;
+	}
+
+	void SetCollisionRadius(float Radius)
+	{
+		RenderObject::SetCollisionRadius(Radius);
+	}
+
+	void ActivateCollision()
+	{
+		RenderObject::ActivateCollision();
+	}
+
+	void DisableCollision()
+	{
+		RenderObject::DisableCollision();
+	}
+
+
+
+	void SetupObject(glm::vec3 Scale, glm::vec3 RotationAmount, glm::vec3 Position, std::string TexturePath, float TextureAlphaReduction, std::vector<float> Vertices, std::vector<int> VertexIndices, GLuint Program, float Width, float Height, const int Life, glm::vec3 Color = glm::vec3(1.f, 1.f, 1.f))
+	{
+		RenderObject::SetupObject(Scale, RotationAmount, Position, TexturePath, TextureAlphaReduction, Vertices, VertexIndices, Program, Width, Height, Color);
+		this->Life = Life;
+		this->CurrentLife = Life;
+	}
 
 	PlayerObject()
 	{
@@ -343,6 +508,11 @@ public:
 	float XSpeed = 1.f;
 
 	unsigned int StepsCount = 10;
+
+	int Life = 3;
+
+private:
+	int CurrentLife = 3;
 
 };
 
@@ -505,9 +675,11 @@ float RandBetween(int Min, int Max)
 	return float(Min + std::rand() % (Max - Min + 1));
 }
 
+
+
 int main()
 {
-	std::vector<float> MeteorVertices = {
+	std::vector<float> RectangleVertices = {
 		// Positions        // UVs
 	   -0.5f, -0.5f, 0.f,  0.f, 0.f,   // Bottom-left vertex
 		0.5f, -0.5f, 0.f,  1.f, 0.f,  // Bottom-right vertex
@@ -541,6 +713,25 @@ int main()
 
 	bool AllowExit = false;
 
+	const int NumberOfMeteors = 15;
+
+	float ScaleRand;
+
+	float RandomXPosition;
+
+	float CurrentTime = 0.f;
+
+	float EnemySpawnLastTime = 0.f;
+	
+	float CollisionHitLastTime = 0.f;
+
+	float CollisionDisableTime = 5.f;
+
+	float SpawnTime = RandBetween(3, 7);
+
+	int SpawnPositionRightSide = 1.f;
+
+
 
 
 	Init(MainWindow, MainGLContext, WindowXPos, WindowYPos, Width, Height);
@@ -553,50 +744,24 @@ int main()
 	GLuint Program = CreateProgram(FragmentShader, VertexShader);
 
 
+	// Create Player
 
 	PlayerObject Player;
 
-	Player.ObjectTransformation.Position = glm::vec3(0.f, -3.f, -6.f);
+	Player.SetupObject(glm::vec3(1.f, 0.6f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/UFO.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 3);
 
-	Player.ObjectTransformation.RotationAmount = glm::vec3(0.f, 0.f, 180.f);
+	Player.SetCollisionRadius(0.3f);
 	
-	Player.ObjectTransformation.Scale = glm::vec3(1.f, 0.7f, 1.f);
 
-	Player.ObjectTransformation.CircleCollisionRadius = 0.3f;
+	// Create Background
 
+	RenderObject MainBackground;
 
-
-	Player.SetProgram(Program);
-
-	Player.SetView();
-
-	Player.SetProjection(Width, Height);
-
-	Player.SetModel(Player.ObjectTransformation.Scale, Player.ObjectTransformation.RotationAmount, Player.ObjectTransformation.Position);
-
-	Player.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/UFO.png", 1.f);
-
-	Player.CreateBuffers(MeteorVertices, RectangleVertexIndices);
+	MainBackground.SetupObject(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, 0.f, 0.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg", 0.3f, BackgroundVertices, RectangleVertexIndices, Program, Width, Height);
 
 
 
-	RenderObject MainBackground = RenderObject();
-
-	MainBackground.SetProgram(Program);
-
-	MainBackground.SetModel(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, 0.f, 0.f));
-
-	MainBackground.SetView();
-
-	MainBackground.SetProjection(Width, Height);
-
-	MainBackground.SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg", 0.3f);
-
-	MainBackground.CreateBuffers(BackgroundVertices, RectangleVertexIndices);
-
-
-
-	const int NumberOfMeteors = 50;
+	// Create Meteors
 
 	EnemyObject MeteorsObj[NumberOfMeteors];
 
@@ -608,33 +773,6 @@ int main()
 		Meteors[i] = &MeteorsObj[i];
 	}
 
-	
-	float ScaleRand;
-
-	float RandomXPosition;
-
-	float TranslateRandY;
-
-	float RotationRand;
-
-	float CurentMeteorScale = 1.f;
-
-	float CurrentMeteorTranslationX = 0.f;
-
-	float TranslationAdditiveVal = 0.01;
-
-	float CurrentMeteorRotation = 0.0f;
-
-	float RotationAdditiveVal = 1.f;
-
-	float CurrentTime = 0.f;
-
-	float LastTime = 0.f;
-
-	float DeltaTime = RandBetween(3, 7);
-
-	int RightSide = 1.f;
-	
 	for (EnemyObject* Meteor : Meteors)
 	{
 		ScaleRand = RandBetween(0.4, 1.f);
@@ -644,44 +782,18 @@ int main()
 		Meteor->YMovementSpeed = RandBetween(0.013f, 0.022f);
 
 		if (RandBetween(1, 2) == 1)
-			RightSide = 1.f;
+			SpawnPositionRightSide = 1.f;
 		else
-			RightSide = -1.f;
+			SpawnPositionRightSide = -1.f;
 
+		RandomXPosition = SpawnPositionRightSide * (float(rand() % 100 + 1) / 25.f);
 
-		RandomXPosition = RightSide * (float(rand() % 100 + 1) / 25.f);
+		Meteor->SetupObject(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(0.f, 0.f, 0.f), glm::vec3(RandomXPosition, 4.5f, -7.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f)));
 
-
-		Meteor->SetProgram(Program);
-
-		Meteor->ObjectTransformation.Position = glm::vec3(RandomXPosition, 4.5f, -7.f);
-
-		Meteor->ObjectTransformation.Scale = glm::vec3(ScaleRand, ScaleRand, ScaleRand);
-
-		Meteor->ObjectTransformation.RotationAmount = glm::vec3(0.f);
-
-		Meteor->ObjectTransformation.CircleCollisionRadius = 0.25f * ScaleRand;
-
-
-		
-		glm::vec3 RandomColor = glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f));
-		Meteor->Color = (RandomColor);
-
-
-		Meteor->SetModel(Meteor->ObjectTransformation.Scale, glm::vec3(0.f, 0.f, 0.f), Meteor->ObjectTransformation.Position);
-
-		Meteor->SetView();
-
-		Meteor->SetProjection(Width, Height);
-
-		Meteor->SetTexture("D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f);
-
-		Meteor->CreateBuffers(MeteorVertices, RectangleVertexIndices);
+		Meteor->SetCollisionRadius(0.25f * ScaleRand);
 
 	}
 
-	int testTreshold = 1000.f;
-	int i = 0;
 
 	std::vector<EnemyObject*> UnspawnedEnemies;
 
@@ -694,42 +806,76 @@ int main()
 
 
 
+	// Create Explosion Animation
+	float AnimationLastTime = 0.f;
+
+	Animation HitAnimation;
+
+	HitAnimation.SetupObject(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 16, 0.05f);
+
+
+	Animation DeadAnimation;
+
+	DeadAnimation.SetupObject(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/ExplosionAnimation/Explosion1.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 10, 0.1f);
 
 
 	while (!AllowExit)
 	{
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-		CurrentTime = SDL_GetTicks() / 1000;
+		CurrentTime = SDL_GetTicks() / 1000.f;
 
 
-		Input(Player.PlayerXMovementStep, Player.CurrentStep, AllowExit, DeltaTime);
+		Input(Player.PlayerXMovementStep, Player.CurrentStep, AllowExit, SpawnTime);
 
 		Player.MoveCharacterRight(Player.ObjectTransformation.Position.r);
 
 		Player.SetModel(Player.ObjectTransformation.Scale, Player.ObjectTransformation.RotationAmount, Player.ObjectTransformation.Position);
 
-		Player.Draw(glm::vec3(1.f, 1.f, 1.f));
+		if (Player.IsAlive())
+			Player.Draw(Player.Color);
+		else
+		{
+			DeadAnimation.PlayAnimation(CurrentTime, "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/ExplosionAnimation/Explosion");
+			DeadAnimation.SetModel(DeadAnimation.ObjectTransformation.Scale, DeadAnimation.ObjectTransformation.RotationAmount, glm::vec3(Player.ObjectTransformation.Position.r, Player.ObjectTransformation.Position.g, Player.ObjectTransformation.Position.b + 0.1f));
+			DeadAnimation.Draw(glm::vec3(1.f, 1.f, 1.f));
+
+			if (DeadAnimation.AnimationState == AnimationPlayingState::APS_Stopped)
+			{
+				AllowExit = true;
+			}
+		}
+
+		if (CurrentTime - CollisionHitLastTime >= CollisionDisableTime)
+			Player.ActivateCollision();
 
 
 		MainBackground.Draw(glm::vec3(1.f, 1.f, 1.f));
 
 
 
-		if (CurrentTime - LastTime > DeltaTime)
+		if (CurrentTime - EnemySpawnLastTime > SpawnTime)
 		{
 			if (UnspawnedEnemies.size() >= 1)
 			{
 
-				DeltaTime = RandBetween(0.01f, 0.07f);
+				SpawnTime = RandBetween(0.1f, 1.f);
 
-				LastTime = CurrentTime;
+				EnemySpawnLastTime = CurrentTime;
+
 				const int SelectedMeteor = RandBetween(0, UnspawnedEnemies.size() - 1);
 				SpawnedEnemies.push_back(UnspawnedEnemies[SelectedMeteor]);
 				UnspawnedEnemies.erase(UnspawnedEnemies.begin() + SelectedMeteor);
 			}
 		}
 
+		
+		if (HitAnimation.AnimationState == AnimationPlayingState::APS_Playing && Player.IsAlive())
+		{
+			HitAnimation.PlayAnimation(CurrentTime, "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/HitAnimation/Hit");
+			HitAnimation.SetModel(HitAnimation.ObjectTransformation.Scale, HitAnimation.ObjectTransformation.RotationAmount, glm::vec3(Player.ObjectTransformation.Position.r, Player.ObjectTransformation.Position.g, Player.ObjectTransformation.Position.b + 0.1f));
+			HitAnimation.Draw(glm::vec3(1.f, 1.f, 1.f));
+		}
 
 		for (EnemyObject* SpawnedEnemy : SpawnedEnemies)
 		{
@@ -741,8 +887,19 @@ int main()
 
 			SpawnedEnemy->Draw(SpawnedEnemy->Color);
 
-			if (SpawnedEnemy->CollisionDetection(&Player))
-				std::cout << "COLLIDED!";
+			if (SpawnedEnemy->CollisionDetection(&Player)) // collision test
+			{
+				std::cout << "Collision Disabled!"<< std::endl;
+				Player.DisableCollision();
+
+					
+
+				Player.ReduceLife();
+
+
+				CollisionHitLastTime = CurrentTime;
+				HitAnimation.AnimationState = AnimationPlayingState::APS_Playing;
+			}
 
 			if (SpawnedEnemy->ObjectTransformation.Position.g <= -5.f) // out of the screen
 			{
