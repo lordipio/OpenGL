@@ -244,7 +244,7 @@ int main()
 	
 	float CollisionHitLastTime = 0.f;
 
-	float CollisionDisableTime = 5.f;
+	float CollisionDisableTime = 2.f;
 
 	float SpawnTime = RandBetween(3, 7);
 
@@ -256,9 +256,9 @@ int main()
 	Init(MainWindow, MainGLContext, WindowXPos, WindowYPos, Width, Height);
 
 
-	GLuint VertexShader = CreateShader("Vertex_Shader.glsl", GL_VERTEX_SHADER);
+	GLuint VertexShader = CreateShader("./Vertex_Shader.glsl", GL_VERTEX_SHADER);
 
-	GLuint FragmentShader = CreateShader("Fragment_Shader.glsl", GL_FRAGMENT_SHADER);
+	GLuint FragmentShader = CreateShader("./Fragment_Shader.glsl", GL_FRAGMENT_SHADER);
 
 	GLuint Program = CreateProgram(FragmentShader, VertexShader);
 
@@ -267,7 +267,7 @@ int main()
 
 	PlayerObject Player;
 
-	Player.SetupObject(glm::vec3(1.f, 0.6f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/UFO.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 3);
+	Player.SetupObject(glm::vec3(1.f, 0.6f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "./PNGs/UFO.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 3);
 
 	Player.SetCollisionRadius(0.3f);
 	
@@ -276,7 +276,7 @@ int main()
 
 	RenderObject MainBackground;
 
-	MainBackground.SetupObject(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, 0.f, 0.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg", 0.3f, BackgroundVertices, RectangleVertexIndices, Program, Width, Height);
+	MainBackground.SetupObject(glm::vec3(12.f, 12.f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, 0.f, 0.f), "./PNGs/Background.jpg", 0.3f, BackgroundVertices, RectangleVertexIndices, Program, Width, Height);
 
 
 
@@ -307,7 +307,7 @@ int main()
 
 		RandomXPosition = SpawnPositionRightSide * (float(rand() % 100 + 1) / 25.f);
 
-		Meteor->SetupObject(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(0.f, 0.f, 0.f), glm::vec3(RandomXPosition, 4.5f, -7.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Meteor.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f)));
+		Meteor->SetupObject(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(0.f, 0.f, 0.f), glm::vec3(RandomXPosition, 4.5f, -7.f), "./PNGs/Meteor.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f)));
 
 		Meteor->SetCollisionRadius(0.25f * ScaleRand);
 
@@ -330,12 +330,12 @@ int main()
 
 	Animation HitAnimation;
 
-	HitAnimation.SetupObject(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/Background.jpg", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 16, 0.05f);
+	HitAnimation.SetupObject(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "./PNGs/Background.jpg", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 16, 0.05f);
 
 
 	Animation DeadAnimation;
 
-	DeadAnimation.SetupObject(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/ExplosionAnimation/Explosion1.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 10, 0.1f);
+	DeadAnimation.SetupObject(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "./PNGs/ExplosionAnimation/Explosion1.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 10, 0.1f);
 
 
 	while (!AllowExit)
@@ -353,9 +353,10 @@ int main()
 
 		if (Player.IsAlive())
 			Player.Draw(Player.Color);
+
 		else
 		{
-			DeadAnimation.PlayAnimation(CurrentTime, "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/ExplosionAnimation/Explosion");
+			DeadAnimation.PlayAnimation(CurrentTime, "./PNGs/ExplosionAnimation/Explosion");
 			DeadAnimation.SetModel(DeadAnimation.ObjectTransformation.Scale, DeadAnimation.ObjectTransformation.RotationAmount, glm::vec3(Player.ObjectTransformation.Position.r, Player.ObjectTransformation.Position.g, Player.ObjectTransformation.Position.b + 0.1f));
 			DeadAnimation.Draw(glm::vec3(1.f, 1.f, 1.f));
 
@@ -365,8 +366,8 @@ int main()
 			}
 		}
 
-		if (CurrentTime - CollisionHitLastTime >= CollisionDisableTime)
-			Player.ActivateCollision();
+		 if (CurrentTime - CollisionHitLastTime >= CollisionDisableTime)
+			 Player.ActivateCollision();
 
 
 		MainBackground.Draw(glm::vec3(1.f, 1.f, 1.f));
@@ -391,7 +392,7 @@ int main()
 		
 		if (HitAnimation.AnimationState == AnimationPlayingState::APS_Playing && Player.IsAlive())
 		{
-			HitAnimation.PlayAnimation(CurrentTime, "D:/Desktop/OpenGL Project/SDL Project/SDL Project/PNGs/HitAnimation/Hit");
+			HitAnimation.PlayAnimation(CurrentTime, "./PNGs/HitAnimation/Hit");
 			HitAnimation.SetModel(HitAnimation.ObjectTransformation.Scale, HitAnimation.ObjectTransformation.RotationAmount, glm::vec3(Player.ObjectTransformation.Position.r, Player.ObjectTransformation.Position.g, Player.ObjectTransformation.Position.b + 0.1f));
 			HitAnimation.Draw(glm::vec3(1.f, 1.f, 1.f));
 		}
@@ -411,7 +412,6 @@ int main()
 				std::cout << "Collision Disabled!"<< std::endl;
 				Player.DisableCollision();
 
-					
 
 				Player.ReduceLife();
 

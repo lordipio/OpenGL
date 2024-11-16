@@ -1,10 +1,11 @@
 #pragma once
 #include <iostream>
-#include <GLAD/glad.h>
+//#include <GLAD/glad.h>
 #include <vector>
-#include "GLM/glm/vec3.hpp"
-#include "GLM/glm/glm.hpp"
-#include "GLM/glm/mat4x4.hpp"
+#include <./GLAD/glad.h>
+#include "./GLM/glm/vec3.hpp"
+#include "./GLM/glm/glm.hpp"
+#include "./GLM/glm/mat4x4.hpp"
 
 enum class AnimationPlayingState
 {
