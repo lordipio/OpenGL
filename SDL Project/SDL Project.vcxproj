@@ -151,12 +151,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Animation.cpp" />
+    <ClCompile Include="EnemyObject.cpp" />
     <ClCompile Include="GLAD\src\glad.c" />
+    <ClCompile Include="PlayerObject.cpp" />
+    <ClCompile Include="RenderObject.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Fragment_Shader.glsl" />
     <None Include="Vertex_Shader.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Animation.h" />
+    <ClInclude Include="EnemyObject.h" />
+    <ClInclude Include="PlayerObject.h" />
+    <ClInclude Include="RenderObject.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
