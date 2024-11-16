@@ -27,13 +27,13 @@ Working on this project significantly enhanced my understanding of:
 - Efficiently structuring vertex data using **VAO**, **VBO**, and **IBO**.
 - Implementing collision detection for game objects using mathematical principles.
 
-## 🖼️ Screenshots
-![ScreenRecorderProject89](https://github.com/user-attachments/assets/73ca9c59-cacb-477e-b3ce-c22dc5bf6be3)
+## 🖼️ Screenshots & GIFs
 
 ![image](https://github.com/user-attachments/assets/6b55107e-2c1e-4a39-a952-c98fca3c7afe)
 
 ![image](https://github.com/user-attachments/assets/8e1edd5a-dd38-4016-8779-6700c00dc945)
 
+![ScreenRecorderProject89](https://github.com/user-attachments/assets/73ca9c59-cacb-477e-b3ce-c22dc5bf6be3)
 
 ## 🔧 Tools and Technologies
 - **Language**: C++, C, GLSL
