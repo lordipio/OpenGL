@@ -50,4 +50,4 @@ Working on this project significantly enhanced my understanding of:
 
 ---
 
-Feel free to try the game! 🚀
+Feel free to try the game! [Release](https://github.com/lordipio/SpaceBastard_OpenGLProject/releases) 🚀
