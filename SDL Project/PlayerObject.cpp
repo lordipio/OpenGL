@@ -3,7 +3,6 @@
 
 PlayerObject::PlayerObject()
 {
-	this->PlayerXMovementStep = this->XSpeed / this->StepsCount;
 }
 
 bool PlayerObject::IsAlive()
@@ -21,22 +20,27 @@ void PlayerObject::ReduceLife()
 }
 
 
-void PlayerObject::SetupObject(glm::vec3 Scale, glm::vec3 RotationAmount, glm::vec3 Position, std::string TexturePath, float TextureAlphaReduction, std::vector<float> Vertices, std::vector<int> VertexIndices, GLuint Program, float Width, float Height, const int Life, glm::vec3 Color)
+void PlayerObject::SetupObject(glm::vec3 Scale, glm::vec3 RotationAmount, glm::vec3 Position, std::string TexturePath, float TextureAlphaReduction, std::vector<float> Vertices, std::vector<int> VertexIndices, GLuint Program, float Width, float Height, const int Life, float XSpeed, unsigned int StepsCount, glm::vec3 Color)
 {
 	RenderObject::SetupObject(Scale, RotationAmount, Position, TexturePath, TextureAlphaReduction, Vertices, VertexIndices, Program, Width, Height, Color);
+
+	this->XSpeed = XSpeed;
+	this->StepsCount = StepsCount;
+	this->CurrentStep = StepsCount + 1;  // Player won't move at first
+	this->PlayerXMovementStep = XSpeed / StepsCount;
 	this->Life = Life;
 	this->CurrentLife = Life;
 }
 
 
 
-void PlayerObject::MoveCharacterRight(float& PlayerXTranslation)
+void PlayerObject::MoveCharacterRight(float& PlayerXTranslation, float DeltaTime)
 {
 	this->ObjectTransformation.Position.r = PlayerXTranslation;
 
 	if (CurrentStep <= StepsCount)
 	{
-		this->ObjectTransformation.Position.r += PlayerXMovementStep;
+		this->ObjectTransformation.Position.r += PlayerXMovementStep * DeltaTime;
 
 		if (PlayerXMovementStep < 0)
 			ObjectTransformation.RotationAmount.g = 180.f;

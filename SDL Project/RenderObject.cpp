@@ -20,8 +20,6 @@ void RenderObject::SetCollisionRadius(float Radius)
 
 void RenderObject::ActivateCollision()
 {
-	std::cout << "Circle Collision Radius: " << this->ObjectTransformation.CircleCollisionRadius << "      Stored Collision Radius " << StoredCollisionRadius << std::endl;
-
 	ObjectTransformation.CircleCollisionRadius = StoredCollisionRadius;
 
 }

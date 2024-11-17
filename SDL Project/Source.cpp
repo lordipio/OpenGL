@@ -150,7 +150,7 @@ GLuint CreateShader(std::string ShaderPath, GLenum ShaderType)
 
 }
 
-void Input(float& PlayerXMovementStep, unsigned int& CurrentStep, bool& AllowExit, float DeltaTime)
+void Input(float& PlayerXMovementStep, unsigned int& CurrentStep, bool& AllowExit)
 {
 	SDL_Event Event;
 
@@ -250,7 +250,13 @@ int main()
 
 	int SpawnPositionRightSide = 1.f;
 
+	float DeltaTime = 0.f;
 
+	float LastFrameTime = 0.f;
+
+	float MeteorZRotationSpeed = 0.f;
+
+	float MeteorYMovementSpeed = 0.f;
 
 
 	Init(MainWindow, MainGLContext, WindowXPos, WindowYPos, Width, Height);
@@ -267,7 +273,7 @@ int main()
 
 	PlayerObject Player;
 
-	Player.SetupObject(glm::vec3(1.f, 0.6f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "./PNGs/UFO.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 3);
+	Player.SetupObject(glm::vec3(1.f, 0.6f, 1.f), glm::vec3(0.f, 0.f, 180.f), glm::vec3(0.f, -3.f, -6.f), "./PNGs/UFO.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, 3, 50.f, 10);
 
 	Player.SetCollisionRadius(0.3f);
 	
@@ -296,9 +302,9 @@ int main()
 	{
 		ScaleRand = RandBetween(0.4, 1.f);
 
-		Meteor->ZRotationSpeed = RandBetween(0.3f, 1.f);
+		MeteorZRotationSpeed = RandBetween(30.f, 60.f);
 
-		Meteor->YMovementSpeed = RandBetween(0.013f, 0.022f);
+		MeteorYMovementSpeed = RandBetween(2.f, 6.f);
 
 		if (RandBetween(1, 2) == 1)
 			SpawnPositionRightSide = 1.f;
@@ -307,8 +313,7 @@ int main()
 
 		RandomXPosition = SpawnPositionRightSide * (float(rand() % 100 + 1) / 25.f);
 
-		Meteor->SetupObject(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(0.f, 0.f, 0.f), glm::vec3(RandomXPosition, 4.5f, -7.f), "./PNGs/Meteor.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f)));
-
+		Meteor->SetupObject(glm::vec3(ScaleRand, ScaleRand, ScaleRand), glm::vec3(0.f, 0.f, 0.f), glm::vec3(RandomXPosition, 4.5f, -7.f), "./PNGs/Meteor.png", 1.f, RectangleVertices, RectangleVertexIndices, Program, Width, Height, MeteorZRotationSpeed, MeteorYMovementSpeed, glm::vec3(RandBetween(0.6f, 1.f), RandBetween(0.4f, 1.f), RandBetween(0.6f, 1.f)));
 		Meteor->SetCollisionRadius(0.25f * ScaleRand);
 
 	}
@@ -344,10 +349,12 @@ int main()
 
 		CurrentTime = SDL_GetTicks() / 1000.f;
 
+		DeltaTime = CurrentTime - LastFrameTime;
 
-		Input(Player.PlayerXMovementStep, Player.CurrentStep, AllowExit, SpawnTime);
 
-		Player.MoveCharacterRight(Player.ObjectTransformation.Position.r);
+		Input(Player.PlayerXMovementStep, Player.CurrentStep, AllowExit);
+
+		Player.MoveCharacterRight(Player.ObjectTransformation.Position.r, DeltaTime);
 
 		Player.SetModel(Player.ObjectTransformation.Scale, Player.ObjectTransformation.RotationAmount, Player.ObjectTransformation.Position);
 
@@ -399,9 +406,9 @@ int main()
 
 		for (EnemyObject* SpawnedEnemy : SpawnedEnemies)
 		{
-			SpawnedEnemy->ObjectTransformation.Position.g -= SpawnedEnemy->YMovementSpeed;
+			SpawnedEnemy->ObjectTransformation.Position.g -= SpawnedEnemy->YMovementSpeed * DeltaTime;
 
-			SpawnedEnemy->ObjectTransformation.RotationAmount.b += SpawnedEnemy->ZRotationSpeed;
+			SpawnedEnemy->ObjectTransformation.RotationAmount.b += SpawnedEnemy->ZRotationSpeed * DeltaTime;
 
 			SpawnedEnemy->SetModel(SpawnedEnemy->ObjectTransformation.Scale, SpawnedEnemy->ObjectTransformation.RotationAmount, SpawnedEnemy->ObjectTransformation.Position);
 
@@ -409,7 +416,6 @@ int main()
 
 			if (SpawnedEnemy->CollisionDetection(&Player)) // collision test
 			{
-				std::cout << "Collision Disabled!"<< std::endl;
 				Player.DisableCollision();
 
 
@@ -425,11 +431,12 @@ int main()
 				SpawnedEnemy->ObjectTransformation.Position.g = 4.5;
 				UnspawnedEnemies.push_back(SpawnedEnemy);
 				auto i = std::find(SpawnedEnemies.begin(), SpawnedEnemies.end(), SpawnedEnemy);
-				std::cout << i - SpawnedEnemies.begin() << std::endl;
 				SpawnedEnemies.erase(std::find(SpawnedEnemies.begin(), SpawnedEnemies.end(), SpawnedEnemy));
 			}
 			
 		}
+
+		LastFrameTime = CurrentTime;
 
 		SDL_GL_SwapWindow(MainWindow);
 	}
